@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări - Admin Unlocked</title>
+  <title>SMURD Rezervări - Admin Manual</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -31,15 +31,15 @@
     input, select { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #e2e8f0; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
     .confirm-btn { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
     
+    /* Statuses */
+    .locked { opacity: 0.3; pointer-events: none; transition: 0.3s; }
+    .unlocked { opacity: 1 !important; pointer-events: auto !important; }
+
     .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 3px double #e2e8f0; display: none; }
     .admin-section { background: #f8fafc; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px; border: 1px solid #e2e8f0; text-align: left; }
     .ts-label { font-size: 10px; color: var(--gray); display: block; }
-
-    /* Overlay Lock Style */
-    .locked { opacity: 0.3; pointer-events: none; transition: 0.3s; }
-    .unlocked { opacity: 1 !important; pointer-events: auto !important; }
 
     @media print { .no-print { display: none !important; } .admin-panel { display: block !important; } }
   </style>
@@ -58,6 +58,10 @@
         <label style="font-size: 12px; font-weight: bold;">ACCES VOLUNTAR:</label>
         <input type="text" id="phoneAuth" placeholder="Număr de Telefon" oninput="verifyPhone()">
         <div id="authMessage" style="font-size: 13px; font-weight: bold; margin-bottom: 5px;"></div>
+      </div>
+
+      <div id="nameInputBox">
+        <label style="font-size: 12px; font-weight: bold;">NUME VOLUNTAR:</label>
         <input type="text" id="userName" placeholder="Nume (Automat)" readonly style="background: #f1f5f9;">
       </div>
 
@@ -80,17 +84,17 @@
 
   <div class="admin-panel" id="adminView">
     <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-      <h3 style="color:var(--primary)">🔓 MOD ADMINISTRATOR ACTIV</h3>
+      <h3 style="color:var(--primary)">🔓 MOD ADMIN: Introducere Manuală Deblocată</h3>
       <button onclick="window.print()" style="background:var(--primary); color:white; border:none; padding:10px; border-radius:5px;">🖨️ Print Avizier</button>
     </div>
     
     <div class="admin-section no-print">
-      <h4>👥 Whitelist Voluntari</h4>
-      <div style="display:flex; gap:10px; flex-wrap: wrap;">
-        <input type="text" id="newVolName" placeholder="Nume Complet" style="flex:1;">
-        <input type="text" id="newVolPhone" placeholder="Telefon" style="flex:1;">
-        <button onclick="addVolunteer()" class="confirm-btn" style="background:var(--primary); width: auto;">Adaugă</button>
-      </div>
+        <h4>👥 Gestiune Whitelist (Voluntari autorizați)</h4>
+        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+          <input type="text" id="newVolName" placeholder="Nume Complet" style="flex:1;">
+          <input type="text" id="newVolPhone" placeholder="Telefon" style="flex:1;">
+          <button onclick="addVolunteer()" class="confirm-btn" style="background:var(--primary); width: auto;">Adaugă în Whitelist</button>
+        </div>
     </div>
 
     <div class="admin-section">
@@ -98,7 +102,7 @@
       <div style="overflow-x:auto;">
         <table>
           <thead>
-            <tr><th>Voluntar</th><th>Data / Interval</th><th>Creat la</th><th class="no-print">Acțiuni</th></tr>
+            <tr><th>Voluntar</th><th>Data / Interval</th><th>Creat la (Timestamp)</th><th class="no-print">Acțiuni</th></tr>
           </thead>
           <tbody id="adminTable"></tbody>
         </table>
@@ -140,29 +144,37 @@ const firebaseConfig = {
     renderAdmin();
   });
 
-  // LOGIN ADMIN & DEBLOCARE
+  // LOGICA ADMIN - DEBLOCARE TOTALĂ
   function adminLogin() {
     const pass = prompt("Parola administrator:");
     if(pass === ADMIN_PASS) {
         isAdmin = true;
         document.getElementById("adminView").style.display = "block";
         document.getElementById("adminLoginBtn").innerText = "✅ Admin Logat";
-        document.getElementById("adminLoginBtn").style.background = "#dcfce7";
         
-        // DEBLOCARE AUTOMATĂ CALENDAR PENTRU ADMIN
+        // 1. Deblocăm vizual calendarul și controalele
         document.getElementById("bookingControls").classList.add("unlocked");
         document.getElementById("calendarContainer").classList.add("unlocked");
-        document.getElementById("authBox").style.display = "none"; // Adminul nu are nevoie de phone verify
-        document.getElementById("userName").value = "ADMINISTRATOR";
         
-        alert("Mod Admin activat. Calendarul a fost deblocat.");
+        // 2. Ascundem caseta de verificare telefon (nu e nevoie de ea)
+        document.getElementById("authBox").style.display = "none";
+        
+        // 3. Facem câmpul de nume editabil manual pentru admin
+        const nameInp = document.getElementById("userName");
+        nameInp.readOnly = false;
+        nameInp.style.background = "#fff";
+        nameInp.placeholder = "Introduceți numele voluntarului manual...";
+        nameInp.value = "";
+        nameInp.focus();
+        
+        alert("Mod Admin activ: Puteți scrie orice nume și rezerva fără limite.");
     } else {
         alert("Parolă incorectă.");
     }
   }
 
   function verifyPhone() {
-    if(isAdmin) return; // Dacă e admin, nu mai verificăm telefonul
+    if(isAdmin) return;
     const phone = document.getElementById("phoneAuth").value.trim();
     const found = volunteers.find(v => v.phone === phone);
     const msg = document.getElementById("authMessage");
@@ -181,28 +193,31 @@ const firebaseConfig = {
   }
 
   function confirmBooking() {
-    const name = document.getElementById("userName").value;
-    const phone = isAdmin ? "ADMIN" : document.getElementById("phoneAuth").value;
+    const name = document.getElementById("userName").value.trim();
+    const phone = isAdmin ? "MANUAL_ADMIN" : document.getElementById("phoneAuth").value;
+    
+    if(!name) return alert("Introduceți numele voluntarului!");
     if(!selDate || selStart === null || selEnd === null) return alert("Selectați intervalul!");
 
-    // Verificăm limita de 2 doar dacă NU este admin
+    // Restricție doar pentru utilizatori normali
     if(!isAdmin) {
         const count = bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth()).length;
-        if(count >= 2) return alert("Ai atins limita de 2 rezervări pe lună!");
+        if(count >= 2) return alert("Limita de 2 rezervări pe lună a fost atinsă!");
     }
 
     const id = Date.now();
     db.ref('bookings/'+id).set({
       id, name, phone, date: selDate.toISOString(),
       start: slots[selStart], end: slots[selEnd],
-      createdAt: new Date().toLocaleString('ro-RO')
+      createdAt: new Date().toLocaleString('ro-RO') // Timestamp ora/data salvării
     });
 
-    alert("Rezervare salvată cu succes!");
+    alert("Rezervare salvată!");
+    if(isAdmin) document.getElementById("userName").value = ""; // Curățăm pentru următoarea introducere manuală
     selStart = null; selEnd = null; renderTimeSlots();
   }
 
-  // LOGICA CALENDAR
+  // RENDER LOGIC
   function isDayFull(d) {
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
     if (dayB.length === 0) return false;
@@ -236,6 +251,7 @@ const firebaseConfig = {
 
   function renderTimeSlots() {
     const grid = document.getElementById("timeGrid"); grid.innerHTML = "";
+    if(!selDate) return;
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === selDate.toDateString());
     slots.forEach((s, i) => {
       const div = document.createElement("div"); div.className = "time-slot"; div.innerText = s;
