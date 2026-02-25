@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Cloud - Admin Pro</title>
+  <title>SMURD Cloud - Listare Avizier</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -20,7 +20,6 @@
     .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
     @media (min-width: 768px) { .grid { grid-template-columns: 1.2fr 1fr; } body { padding: 20px; } }
 
-    /* Calendar & Sloturi */
     .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
     .calendar button { aspect-ratio: 1/1; border-radius: 8px; border: 1px solid #e2e8f0; background: white; font-weight: 600; cursor: pointer; }
     .day-free { background: #ecfdf5 !important; color: #059669; }
@@ -32,7 +31,6 @@
     .time-slot.active { background: var(--primary); color: white; }
     .time-slot.taken { background: #fee2e2; color: #ef4444; text-decoration: line-through; }
 
-    /* Formular & Admin */
     input, select { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #e2e8f0; margin-bottom: 10px; box-sizing: border-box; }
     .confirm-btn { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
     
@@ -41,14 +39,27 @@
     
     .table-container { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
-    th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-    .ts { font-size: 10px; color: var(--gray); display: block; }
+    th, td { padding: 10px; border: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f1f5f9; }
+
+    /* STILURI SPECIALE PENTRU PRINT (AVIZIER) */
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; padding: 0; }
+      .no-print, .admin-form, button, .top-bar, hr { display: none !important; }
+      .admin-panel { display: block !important; margin: 0; padding: 0; border: none; }
+      table { font-size: 14px; color: black; }
+      th { background: #eee !important; color: black; }
+      .print-header { display: block !important; text-align: center; margin-bottom: 20px; }
+      .ts { display: none; } /* Ascundem data creării pe print pentru aspect curat */
+    }
+    .print-header { display: none; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+  <div class="top-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
     <h2 style="margin:0; color:var(--danger)">SMURD Rezervări</h2>
     <button onclick="adminLogin()" class="no-print">🔑 Admin</button>
   </div>
@@ -62,7 +73,6 @@
       </div>
       <div class="calendar" id="calendar"></div>
     </div>
-
     <div>
       <input type="text" id="name" placeholder="Nume și Prenume" oninput="handleNameInput()">
       <div id="bookingCount" style="font-size:13px; font-weight:bold; margin-bottom:10px;"></div>
@@ -73,42 +83,58 @@
   </div>
 
   <div class="admin-panel" id="adminView">
-    <h3 style="text-align:center;">Panou Administrator</h3>
+    <div class="print-header">
+      <h1 style="margin:0;">ISU PRAHOVA - Detașamentul 1 Ploiești</h1>
+      <h2>Grafic Rezervări Voluntari - Luna <span id="printMonth"></span></h2>
+      <hr>
+    </div>
+
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center;">
+      <h3>Gestiune și Listare</h3>
+      <button onclick="window.print()" style="background:var(--primary); color:white; padding:10px 20px; border:none; border-radius:8px; font-weight:bold;">🖨️ Printează pentru Avizier</button>
+    </div>
     
-    <div class="admin-form">
-      <h4>➕ Adăugare Manuală (Fără limită)</h4>
+    <div class="admin-form no-print">
+      <h4>➕ Adăugare Manuală</h4>
       <input type="text" id="admin_name" placeholder="Nume voluntar">
       <input type="date" id="admin_date">
       <div style="display:flex; gap:10px;">
         <select id="admin_start"></select>
         <select id="admin_end"></select>
       </div>
-      <button onclick="adminAdd()" class="confirm-btn" style="background:var(--primary)">Adaugă Manual</button>
+      <button onclick="adminAdd()" class="confirm-btn" style="background:var(--gray)">Adaugă în listă</button>
     </div>
 
     <div class="table-container">
       <table>
         <thead>
-          <tr><th>Voluntar</th><th>Data / Interval</th><th>Efectuată la</th><th>Acțiuni</th></tr>
+          <tr>
+            <th>Nume și Prenume Voluntar</th>
+            <th>Data Rezervării</th>
+            <th>Interval Orar</th>
+            <th class="no-print">Acțiuni</th>
+          </tr>
         </thead>
         <tbody id="adminTable"></tbody>
       </table>
     </div>
+    <p class="no-print" style="font-size:11px; color:gray; margin-top:10px;">* Sfat: Pentru avizier, folosiți butonul albastru de printare de mai sus.</p>
   </div>
 </div>
 
 <script>
   // CONFIGURARE FIREBASE
-  const firebaseConfig = {
-    apiKey: "AIzaSy...",
-    authDomain: "...",
-    databaseURL: "...",
-    projectId: "...",
-    storageBucket: "...",
-    messagingSenderId: "...",
-    appId: "..."
-  };
-
+ const firebaseConfig = {
+  apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
+  authDomain: "rezervari-smurd.firebaseapp.com",
+  databaseURL: "https://rezervari-smurd-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "rezervari-smurd",
+  storageBucket: "rezervari-smurd.firebasestorage.app",
+  messagingSenderId: "694856921809",
+  appId: "1:694856921809:web:de6e004fd6a9cd5f4c0bf0",
+  measurementId: "G-9J65W91YHD"
+};
+  
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
@@ -117,55 +143,67 @@
   const slots = [];
   for(let i=START_H; i<=END_H; i++) slots.push(`${String(i).padStart(2,'0')}:00`);
 
-  // Populează selectoarele admin
   const s1 = document.getElementById('admin_start'), s2 = document.getElementById('admin_end');
   slots.forEach(s => { s1.innerHTML += `<option value="${s}">${s}</option>`; s2.innerHTML += `<option value="${s}">${s}</option>`; });
 
-  // Sync Cloud
   db.ref('bookings').on('value', snap => {
     const val = snap.val();
     bookings = val ? Object.values(val) : [];
     renderCalendar(); renderTimeSlots(); renderAdmin();
   });
 
-  function getCleanCount(name, date) {
-    if(!name || !date) return 0;
-    const n = name.trim().toLowerCase();
-    return bookings.filter(b => 
-      b.name.trim().toLowerCase() === n && 
-      new Date(b.date).getMonth() === date.getMonth() &&
-      new Date(b.date).getFullYear() === date.getFullYear()
-    ).length;
+  function saveBooking(name, dateStr, start, end) {
+    const id = Date.now();
+    db.ref('bookings/'+id).set({
+      id, name, date: dateStr, start, end,
+      createdAt: new Date().toLocaleString('ro-RO')
+    });
   }
 
   function confirmBooking() {
     const n = document.getElementById("name").value.trim();
     if(!n || !selDate || selStart===null || selEnd===null) return alert("Date incomplete!");
-    if(getCleanCount(n, selDate) >= 2) return alert("Limita de 2 rezervări atinsă!");
+    
+    const count = bookings.filter(b => 
+      b.name.trim().toLowerCase() === n.toLowerCase() && 
+      new Date(b.date).getMonth() === selDate.getMonth()
+    ).length;
+
+    if(count >= 2) return alert("Limita de 2 rezervări atinsă!");
     saveBooking(n, selDate.toISOString(), slots[selStart], slots[selEnd]);
     selStart = null; selEnd = null;
+    alert("Rezervare salvată!");
   }
 
-  // Funcția pentru ADMIN (fără limită)
   function adminAdd() {
     const n = document.getElementById("admin_name").value.trim();
     const d = document.getElementById("admin_date").value;
     const s = document.getElementById("admin_start").value;
     const e = document.getElementById("admin_end").value;
-    if(!n || !d) return alert("Completează numele și data!");
+    if(!n || !d) return alert("Nume/Data lipsă!");
     saveBooking(n, new Date(d).toISOString(), s, e);
-    alert("Adăugat cu succes (Admin Override)");
+    alert("Adăugat manual!");
   }
 
-  function saveBooking(name, dateStr, start, end) {
-    const id = Date.now();
-    const data = {
-      id, name, date: dateStr, start, end,
-      createdAt: new Date().toLocaleString('ro-RO') // Data și ora înregistrării
-    };
-    db.ref('bookings/'+id).set(data);
+  function renderAdmin() {
+    const t = document.getElementById("adminTable"); t.innerHTML = "";
+    document.getElementById("printMonth").innerText = curDate.toLocaleString('ro-RO', {month:'long', year:'numeric'});
+    
+    // Sortăm rezervările după dată pentru un avizier ordonat
+    [...bookings]
+      .sort((a,b) => new Date(a.date) - new Date(b.date))
+      .filter(b => new Date(b.date).getMonth() === curDate.getMonth()) // Afișăm doar luna curentă pe admin
+      .forEach(b => {
+        t.innerHTML += `<tr>
+          <td><strong>${b.name.toUpperCase()}</strong></td>
+          <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
+          <td>${b.start} - ${b.end}</td>
+          <td class="no-print"><button onclick="deleteBooking(${b.id})" style="color:red; background:none; border:none; cursor:pointer;">❌ Șterge</button></td>
+        </tr>`;
+      });
   }
 
+  // RESTUL FUNCȚIILOR (calendar, time slots, etc.)
   function isDayFull(d) {
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
     for(let i=0; i<slots.length-1; i++) {
@@ -179,7 +217,6 @@
     document.getElementById("monthLabel").innerText = curDate.toLocaleString('ro-RO',{month:'long',year:'numeric'});
     const y = curDate.getFullYear(), m = curDate.getMonth();
     const totalDays = new Date(y, m+1, 0).getDate();
-
     for(let i=1; i<=totalDays; i++) {
       const d = new Date(y, m, i);
       const btn = document.createElement("button");
@@ -187,11 +224,7 @@
       if(isDayFull(d)) btn.className = "day-full";
       else {
         btn.className = "day-free";
-        btn.onclick = () => { 
-          selDate = d; selStart = null; selEnd = null;
-          document.getElementById("selectedDateLabel").innerText = "Data: " + d.toLocaleDateString('ro-RO');
-          renderCalendar(); renderTimeSlots(); handleNameInput();
-        };
+        btn.onclick = () => { selDate = d; selStart = null; selEnd = null; renderCalendar(); renderTimeSlots(); handleNameInput(); };
       }
       if(selDate && d.toDateString() === selDate.toDateString()) btn.classList.add("selected");
       cal.appendChild(btn);
@@ -220,28 +253,16 @@
   }
 
   function handleNameInput() {
-    const n = document.getElementById("name").value;
-    const c = getCleanCount(n, selDate || curDate);
-    const el = document.getElementById("bookingCount");
-    el.innerText = n.trim() ? `Rezervări: ${c} / 2` : "";
-    el.style.color = c >= 2 ? "var(--danger)" : "var(--primary)";
+    const n = document.getElementById("name").value.trim();
+    if(!n) { document.getElementById("bookingCount").innerText = ""; return; }
+    const c = bookings.filter(b => b.name.toLowerCase() === n.toLowerCase() && new Date(b.date).getMonth() === (selDate ? selDate.getMonth() : curDate.getMonth())).length;
+    document.getElementById("bookingCount").innerText = `Rezervări lunare detectate: ${c} / 2`;
+    document.getElementById("bookingCount").style.color = c >= 2 ? "red" : "blue";
   }
 
-  function changeMonth(offset) { curDate.setMonth(curDate.getMonth() + offset); renderCalendar(); }
-  function adminLogin() { if(prompt("Parola:") === ADMIN_PASS) document.getElementById("adminView").style.display = "block"; }
+  function changeMonth(offset) { curDate.setMonth(curDate.getMonth() + offset); renderCalendar(); renderAdmin(); }
+  function adminLogin() { if(prompt("Parola:") === ADMIN_PASS) { document.getElementById("adminView").style.display = "block"; renderAdmin(); } }
   function deleteBooking(id) { if(confirm("Ștergi?")) db.ref('bookings/'+id).remove(); }
-
-  function renderAdmin() {
-    const t = document.getElementById("adminTable"); t.innerHTML = "";
-    [...bookings].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(b => {
-      t.innerHTML += `<tr>
-        <td><strong>${b.name}</strong></td>
-        <td>${new Date(b.date).toLocaleDateString('ro-RO')}<br>${b.start} - ${b.end}</td>
-        <td><span class="ts">${b.createdAt || 'N/A'}</span></td>
-        <td><button onclick="deleteBooking(${b.id})">❌</button></td>
-      </tr>`;
-    });
-  }
 
   renderCalendar();
 </script>
