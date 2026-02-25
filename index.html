@@ -2,78 +2,138 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistem de Rezervări SMURD - Cloud</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SMURD Cloud - Mobil Optimizat</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
   <style>
-    /* ... (Pastrezi stilul CSS anterior) ... */
-    :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --gray: #94a3b8; --light-gray: #e2e8f0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background:#f4f6f9; margin:0; padding:20px; color: #1e293b; }
-    .container { max-width:1100px; margin:auto; background:white; padding:25px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.05);} 
-    .grid { display:grid; grid-template-columns: 1.2fr 1fr; gap:30px; }
-    .calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:10px; }
-    .calendar button { padding:12px 5px; border-radius:8px; border:1px solid #e2e8f0; cursor:pointer; font-weight: 600; transition: 0.2s; }
-    .day-free { background: var(--success) !important; color: white; border: none; }
-    .day-full { background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important; border: none; text-decoration: line-through; }
-    .calendar button.selected { background: var(--primary) !important; color:white !important; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3); }
-    .time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; margin-top: 15px; max-height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
-    .time-slot { padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; text-align: center; cursor: pointer; font-size: 14px; transition: 0.2s; font-weight: 500; background: white; }
-    .time-slot:hover:not(.taken) { border-color: var(--primary); background: #eff6ff; }
+    :root { 
+      --primary: #2563eb; --danger: #ef4444; --success: #22c55e; 
+      --gray: #64748b; --light-gray: #f1f5f9; 
+    }
+
+    body { 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      background: #f8fafc; margin: 0; padding: 10px; color: #1e293b;
+    }
+
+    .container { 
+      max-width: 1000px; margin: auto; background: white; 
+      padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    /* GRID RECEPTIV: 2 coloane pe PC, 1 coloană pe Mobil */
+    .grid { 
+      display: grid; grid-template-columns: 1fr; gap: 20px; 
+    }
+    @media (min-width: 768px) {
+      .grid { grid-template-columns: 1.2fr 1fr; }
+      body { padding: 20px; }
+      .container { padding: 25px; }
+    }
+
+    /* CALENDAR OPTIMIZAT */
+    .calendar { 
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; 
+    }
+    .calendar button { 
+      aspect-ratio: 1 / 1; padding: 5px; border-radius: 8px; border: 1px solid #e2e8f0; 
+      background: white; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s;
+    }
+    .day-free { background: #ecfdf5 !important; color: #059669; border-color: #10b981 !important; }
+    .day-full { background: #f1f5f9 !important; color: #94a3b8 !important; cursor: not-allowed; text-decoration: line-through; }
+    .calendar button.selected { background: var(--primary) !important; color: white !important; transform: scale(0.95); }
+
+    /* SLOTURI ORARE - Butoane mai mari pe mobil */
+    .time-grid { 
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); 
+      gap: 10px; margin-top: 10px; max-height: 350px; overflow-y: auto; padding: 5px;
+    }
+    .time-slot { 
+      padding: 15px 5px; border: 1px solid #e2e8f0; border-radius: 10px; 
+      text-align: center; font-size: 14px; font-weight: 600; background: #fff;
+    }
     .time-slot.active { background: var(--primary); color: white; border-color: var(--primary); }
-    .time-slot.taken { background: #fee2e2; color: #b91c1c; border-color: #fecaca; cursor: not-allowed; text-decoration: line-through; }
+    .time-slot.taken { background: #fee2e2; color: #ef4444; border-color: #fecaca; text-decoration: line-through; }
     .time-slot.in-range { background: #dbeafe; border-color: var(--primary); }
-    input { padding:12px; width:100%; box-sizing: border-box; margin-bottom:15px; border-radius:8px; border:1px solid #ccc; font-size: 16px; }
-    button.confirm-btn { width: 100%; padding: 14px; background: var(--success); color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 15px; }
-    .admin { margin-top:40px; border-top: 2px solid #eee; padding-top: 20px; }
-    table { width:100%; border-collapse:collapse; margin-top:15px; }
-    th, td { border:1px solid #e2e8f0; padding:12px; text-align: left; }
-    .timestamp-cell { font-size: 11px; color: #64748b; }
+
+    /* INPUTS & BUTTONS */
+    input[type="text"] { 
+      width: 100%; padding: 14px; border-radius: 10px; border: 2px solid #e2e8f0; 
+      font-size: 16px; margin-bottom: 10px; box-sizing: border-box; 
+    }
+    input[type="text"]:focus { border-color: var(--primary); outline: none; }
+    
+    .confirm-btn { 
+      width: 100%; padding: 16px; background: var(--success); color: white; 
+      border: none; border-radius: 10px; font-weight: bold; font-size: 16px; 
+      cursor: pointer; margin-top: 10px; box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.4);
+    }
+
+    /* TABEL ADMIN RECEPTIV */
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+    th, td { padding: 12px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f8fafc; color: var(--gray); text-transform: uppercase; font-size: 11px; }
+
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .status-msg { font-size: 13px; font-weight: bold; margin-bottom: 10px; }
+
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="top-bar" style="display:flex; justify-content:space-between;">
-      <h1 style="margin:0; color:var(--danger)">SMURD Cloud Sync</h1>
-      <button onclick="adminLogin()" class="no-print">Admin</button>
+
+<div class="container">
+  <div class="top-bar">
+    <div>
+      <h2 style="margin:0; color:var(--danger); font-size: 1.2rem;">Rezervări Voluntari</h2>
+      <small id="syncStatus">☁️ Sincronizat în Cloud</small>
+    </div>
+    <button onclick="adminLogin()" class="no-print" style="padding: 6px 12px; border-radius: 6px; font-size: 12px;">Admin</button>
+  </div>
+
+  <div class="grid no-print">
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <button onclick="changeMonth(-1)">«</button>
+        <strong id="monthLabel"></strong>
+        <button onclick="changeMonth(1)">»</button>
+      </div>
+      <div class="calendar" id="calendar"></div>
     </div>
 
-    <div class="grid no-print">
-      <div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <button onclick="changeMonth(-1)">«</button>
-          <h3 id="monthLabel"></h3>
-          <button onclick="changeMonth(1)">»</button>
-        </div>
-        <div class="calendar" id="calendar"></div>
-      </div>
-
-      <div>
-        <input type="text" id="name" placeholder="Nume și Prenume" oninput="handleNameInput()" />
-        <div id="bookingCount" style="font-weight:bold; margin-bottom:10px;"></div>
-        <div id="selectedDateLabel">Selectați o zi</div>
-        <div class="time-grid" id="timeGrid"></div>
-        <button class="confirm-btn" onclick="confirmBooking()">Confirmă Rezervarea</button>
-      </div>
+    <div>
+      <input type="text" id="name" placeholder="Nume și Prenume" oninput="handleNameInput()" autocomplete="name">
+      <div id="bookingCount" class="status-msg"></div>
+      <div id="selectedDateLabel" style="font-weight:bold; margin-bottom:10px; color: var(--primary);">Selectați o zi...</div>
+      
+      <div style="font-size: 12px; color: var(--gray); margin-bottom: 5px;">Atinge ora de început și ora de final:</div>
+      <div class="time-grid" id="timeGrid"></div>
+      
+      <button class="confirm-btn" onclick="confirmBooking()">Confirmă Rezervarea</button>
     </div>
+  </div>
 
-    <div class="admin" id="adminView" style="display:none;">
-      <h2 style="text-align:center;">Panou Admin (Cloud Data)</h2>
+  <div class="admin" id="adminView" style="display:none;">
+    <hr>
+    <h3 style="text-align:center;">Listă Rezervări (Admin)</h3>
+    <div class="table-container">
       <table>
         <thead>
-          <tr><th>Nume</th><th>Data</th><th>Interval</th><th>Efectuată la</th><th class="no-print">Acțiuni</th></tr>
+          <tr><th>Nume</th><th>Data</th><th>Interval</th><th class="no-print">Acțiuni</th></tr>
         </thead>
         <tbody id="adminTable"></tbody>
       </table>
     </div>
   </div>
+</div>
 
 <script>
-  // ATENȚIE: Înlocuiește cu datele tale de la Firebase
-  const firebaseConfig = {
+  // CONFIGURARE FIREBASE (Înlocuiește cu ale tale)
+const firebaseConfig = {
   apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
   authDomain: "rezervari-smurd.firebaseapp.com",
   databaseURL: "https://rezervari-smurd-default-rtdb.europe-west1.firebasedatabase.app",
@@ -83,131 +143,120 @@
   appId: "1:694856921809:web:de6e004fd6a9cd5f4c0bf0",
   measurementId: "G-9J65W91YHD"
 };
-  // Inițializare Firebase
+
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  const BUSINESS_START = 8, BUSINESS_END = 22, ADMIN_PASSWORD = "admin1234*";
-  let currentDate = new Date(), selectedDate = null, selectionStart = null, selectionEnd = null;
-  let bookings = [];
+  const START_H = 8, END_H = 22, ADMIN_PASS = "admin1234*";
+  let curDate = new Date(), selDate = null, selStart = null, selEnd = null, bookings = [];
+  const slots = [];
+  for(let i=START_H; i<=END_H; i++) slots.push(`${String(i).padStart(2,'0')}:00`);
 
-  const timeSlots = [];
-  for(let h=BUSINESS_START; h<=BUSINESS_END; h++) { timeSlots.push(`${String(h).padStart(2,'0')}:00`); }
-
-  // SINCRONIZARE ÎN TIMP REAL: Se activează ori de câte ori baza de date se schimbă
-  db.ref('bookings').on('value', (snapshot) => {
-    const data = snapshot.val();
-    bookings = data ? Object.values(data) : [];
-    renderCalendar();
-    renderTimeSlots();
-    renderAdmin();
+  // Ascultă schimbările din Cloud
+  db.ref('bookings').on('value', snap => {
+    const val = snap.val();
+    bookings = val ? Object.values(val) : [];
+    renderCalendar(); renderTimeSlots(); renderAdmin();
   });
 
-  function getMonthlyCountForUser(inputName, targetDate) {
-    if (!inputName) return 0;
-    const cleanInput = inputName.trim().toLowerCase();
-    return bookings.filter(b => {
-      const bDate = new Date(b.date);
-      return b.name.trim().toLowerCase() === cleanInput && 
-             bDate.getMonth() === targetDate.getMonth() && 
-             bDate.getFullYear() === targetDate.getFullYear();
-    }).length;
+  function getCleanCount(name, date) {
+    if(!name || !date) return 0;
+    const n = name.trim().toLowerCase();
+    return bookings.filter(b => 
+      b.name.trim().toLowerCase() === n && 
+      new Date(b.date).getMonth() === date.getMonth() &&
+      new Date(b.date).getFullYear() === date.getFullYear()
+    ).length;
   }
 
-  function confirmBooking(){
-    const name = document.getElementById("name").value.trim();
-    if(!name || !selectedDate || selectionStart === null || selectionEnd === null) return alert("Date incomplete!");
-    
-    if(getMonthlyCountForUser(name, selectedDate) >= 2) return alert("Limita de 2 rezervări atinsă!");
+  function confirmBooking() {
+    const n = document.getElementById("name").value.trim();
+    if(!n || !selDate || selStart===null || selEnd===null) return alert("Completează tot!");
+    if(getCleanCount(n, selDate) >= 2) return alert("Ai deja 2 rezervări luna aceasta!");
 
-    const newBooking = {
-      id: Date.now(),
-      name: name,
-      date: selectedDate.toISOString(),
-      start: timeSlots[selectionStart],
-      end: timeSlots[selectionEnd],
+    const id = Date.now();
+    const data = {
+      id, name: n, date: selDate.toISOString(),
+      start: slots[selStart], end: slots[selEnd],
       createdAt: new Date().toLocaleString('ro-RO')
     };
 
-    // SALVARE ÎN FIREBASE (în loc de localStorage)
-    db.ref('bookings/' + newBooking.id).set(newBooking)
-      .then(() => alert("Rezervare salvată în Cloud!"))
-      .catch(err => alert("Eroare: " + err.message));
-
-    selectionStart = null; selectionEnd = null;
+    db.ref('bookings/'+id).set(data).then(() => {
+      alert("Rezervare confirmată!");
+      selStart = null; selEnd = null; renderTimeSlots();
+    });
   }
 
-  function deleteBooking(id){
-    if(confirm("Ștergi din cloud?")){
-      db.ref('bookings/' + id).remove();
+  function isDayFull(d) {
+    const dayB = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
+    for(let i=0; i<slots.length-1; i++) {
+      if(!dayB.some(b => slots[i] >= b.start && slots[i] < b.end)) return false;
     }
+    return dayB.length > 0;
   }
 
-  // Celelalte funcții (renderCalendar, renderTimeSlots, etc.) rămân identice ca în versiunea anterioară
-  // dar le actualizăm să folosească datele din array-ul global 'bookings' sincronizat.
+  function renderCalendar() {
+    const cal = document.getElementById("calendar"); cal.innerHTML = "";
+    document.getElementById("monthLabel").innerText = curDate.toLocaleString('ro-RO',{month:'long',year:'numeric'});
+    const y = curDate.getFullYear(), m = curDate.getMonth();
+    const totalDays = new Date(y, m+1, 0).getDate();
 
-  function isDayFull(date) {
-    const dayStr = date.toDateString();
-    const dayBookings = bookings.filter(b => new Date(b.date).toDateString() === dayStr);
-    for(let i=0; i < timeSlots.length - 1; i++) {
-        const time = timeSlots[i];
-        if(!dayBookings.some(b => time >= b.start && time < b.end)) return false;
-    }
-    return dayBookings.length > 0;
-  }
-
-  function renderCalendar(){
-    const cal=document.getElementById("calendar"); cal.innerHTML="";
-    document.getElementById("monthLabel").innerText = currentDate.toLocaleString('ro-RO',{month:'long',year:'numeric'});
-    const y=currentDate.getFullYear(), m=currentDate.getMonth();
-    const days=new Date(y,m+1,0).getDate();
-    for(let d=1; d<=days; d++){
-      const date=new Date(y,m,d);
-      const btn=document.createElement("button"); btn.textContent=d;
-      if(isDayFull(date)) { btn.classList.add("day-full"); btn.disabled = true; } 
+    for(let i=1; i<=totalDays; i++) {
+      const d = new Date(y, m, i);
+      const btn = document.createElement("button");
+      btn.innerText = i;
+      if(isDayFull(d)) btn.className = "day-full";
       else {
-          btn.classList.add("day-free");
-          btn.onclick=()=> { selectedDate = new Date(y,m,d); selectionStart = null; selectionEnd = null; renderTimeSlots(); renderCalendar(); };
+        btn.className = "day-free";
+        btn.onclick = () => { 
+          selDate = d; selStart = null; selEnd = null;
+          document.getElementById("selectedDateLabel").innerText = "Data: " + d.toLocaleDateString('ro-RO');
+          renderCalendar(); renderTimeSlots(); handleNameInput();
+        };
       }
-      if(selectedDate && date.toDateString() === selectedDate.toDateString()) btn.classList.add("selected");
+      if(selDate && d.toDateString() === selDate.toDateString()) btn.classList.add("selected");
       cal.appendChild(btn);
     }
   }
 
-  function renderTimeSlots(){
+  function renderTimeSlots() {
     const grid = document.getElementById("timeGrid"); grid.innerHTML = "";
-    if(!selectedDate) return;
-    const dayBookings = bookings.filter(b => new Date(b.date).toDateString() === selectedDate.toDateString());
-    timeSlots.forEach((time, index) => {
-      const slotDiv = document.createElement("div"); slotDiv.className = "time-slot"; slotDiv.innerText = time;
-      if(dayBookings.some(b => time >= b.start && time < b.end)) slotDiv.classList.add("taken");
+    if(!selDate) return;
+    const dayB = bookings.filter(b => new Date(b.date).toDateString() === selDate.toDateString());
+
+    slots.forEach((s, i) => {
+      const div = document.createElement("div");
+      div.className = "time-slot"; div.innerText = s;
+      if(dayB.some(b => s >= b.start && s < b.end)) div.classList.add("taken");
       else {
-        slotDiv.onclick = () => {
-          if(selectionStart === null || (selectionStart !== null && selectionEnd !== null)) { selectionStart = index; selectionEnd = null; }
-          else { selectionEnd = index < selectionStart ? selectionStart : index; if(index < selectionStart) selectionStart = index; }
+        div.onclick = () => {
+          if(selStart === null || (selStart !== null && selEnd !== null)) { selStart = i; selEnd = null; }
+          else { selEnd = i < selStart ? selStart : i; if(i < selStart) selStart = i; }
           renderTimeSlots();
         };
-        if(selectionStart === index || selectionEnd === index) slotDiv.classList.add("active");
-        if(selectionStart !== null && selectionEnd !== null && index > selectionStart && index < selectionEnd) slotDiv.classList.add("in-range");
+        if(selStart === i || selEnd === i) div.classList.add("active");
+        if(selStart !== null && selEnd !== null && i > selStart && i < selEnd) div.classList.add("in-range");
       }
-      grid.appendChild(slotDiv);
+      grid.appendChild(div);
     });
   }
 
-  function handleNameInput(){
-    const count = getMonthlyCountForUser(document.getElementById("name").value, selectedDate || currentDate);
+  function handleNameInput() {
+    const n = document.getElementById("name").value;
+    const c = getCleanCount(n, selDate || curDate);
     const el = document.getElementById("bookingCount");
-    el.innerText = `Rezervări: ${count} / 2`;
-    el.style.color = count >= 2 ? "red" : "blue";
+    el.innerText = n.trim() ? `Rezervări: ${c} / 2` : "";
+    el.style.color = c >= 2 ? "var(--danger)" : "var(--primary)";
   }
 
-  function changeMonth(offset){ currentDate.setMonth(currentDate.getMonth() + offset); renderCalendar(); }
-  function adminLogin(){ if(prompt("Parolă:") === ADMIN_PASSWORD) document.getElementById("adminView").style.display = "block"; }
+  function changeMonth(offset) { curDate.setMonth(curDate.getMonth() + offset); renderCalendar(); }
+  function adminLogin() { if(prompt("Parola admin:") === ADMIN_PASS) document.getElementById("adminView").style.display = "block"; }
+  function deleteBooking(id) { if(confirm("Ștergi?")) db.ref('bookings/'+id).remove(); }
 
-  function renderAdmin(){
-    const table = document.getElementById("adminTable"); table.innerHTML = "";
-    [...bookings].sort((a,b)=> new Date(a.date) - new Date(b.date)).forEach(b => {
-      table.innerHTML += `<tr><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td>${b.createdAt}</td><td><button onclick="deleteBooking(${b.id})">❌</button></td></tr>`;
+  function renderAdmin() {
+    const t = document.getElementById("adminTable"); t.innerHTML = "";
+    [...bookings].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(b => {
+      t.innerHTML += `<tr><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td><button onclick="deleteBooking(${b.id})" class="no-print">❌</button></td></tr>`;
     });
   }
 
