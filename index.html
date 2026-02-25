@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări - Listă Curată</title>
+  <title>SMURD Rezervări - Control Total</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
   <style>
-    :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --gray: #64748b; --bg: #f8fafc; }
+    :root { --primary: #2563eb; --danger: #ef4444; --success: #22c55e; --warning: #f59e0b; --gray: #64748b; --bg: #f8fafc; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #1e293b; }
     .container { max-width: 1000px; margin: auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     
@@ -31,6 +31,9 @@
     input, select { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #e2e8f0; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
     .confirm-btn { width: 100%; padding: 15px; background: var(--success); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
     
+    /* System Lock Overlay */
+    .system-lock-msg { display: none; background: #fff7ed; border: 1px solid #fdba74; color: #c2410c; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; text-align: center; }
+
     .locked { opacity: 0.3; pointer-events: none; transition: 0.3s; }
     .unlocked { opacity: 1 !important; pointer-events: auto !important; }
 
@@ -44,6 +47,14 @@
     .ts-label { font-size: 10px; color: var(--gray); display: block; }
     .manual-tag { font-size: 10px; background: #fee2e2; color: #ef4444; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
 
+    /* Admin Toggle Switch */
+    .switch { position: relative; display: inline-block; width: 60px; height: 30px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--success); transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--danger); }
+    input:checked + .slider:before { transform: translateX(30px); }
+
     @media print { .no-print { display: none !important; } .admin-panel { display: block !important; } }
   </style>
 </head>
@@ -53,6 +64,10 @@
   <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
     <h2 style="margin:0; color:var(--danger)">SMURD Rezervări</h2>
     <button id="adminLoginBtn" onclick="adminLogin()">🔑 Admin Login</button>
+  </div>
+
+  <div id="maintenanceMsg" class="system-lock-msg">
+    ⚠️ REZERVĂRI BLOCATE: Sistemul este în mentenanță.
   </div>
 
   <div class="grid no-print">
@@ -86,9 +101,19 @@
   </div>
 
   <div class="admin-panel" id="adminView">
-    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-      <h3 style="color:var(--primary); margin:0;">🔐 MOD ADMIN ACTIV</h3>
-      <button onclick="window.print()" style="background:var(--primary); color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🖨️ Print Avizier</button>
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; background: #fff1f2; padding: 15px; border-radius: 10px; border: 1px solid #fecaca;">
+      <div>
+        <h3 style="color:var(--danger); margin:0;">🔐 CONTROL ADMIN</h3>
+        <p style="margin:5px 0 0 0; font-size:12px;">Modificări manuale și setări sistem</p>
+      </div>
+      
+      <div style="text-align: right;">
+        <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">BLOCARE REZERVĂRI:</label>
+        <label class="switch">
+          <input type="checkbox" id="systemLockToggle" onchange="toggleSystemLock(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
     
     <div class="admin-section no-print">
@@ -107,7 +132,10 @@
     </div>
 
     <div class="admin-section">
-      <h4 class="no-print">📅 Tabel Rezervări Active</h4>
+      <div style="display:flex; justify-content:space-between;">
+        <h4 class="no-print">📅 Tabel Rezervări Active</h4>
+        <button class="no-print" onclick="window.print()" style="background:var(--gray); color:white; border:none; padding:5px 15px; border-radius:5px; cursor:pointer;">🖨️ Print</button>
+      </div>
       <div style="overflow-x:auto;">
         <table>
           <thead>
@@ -138,9 +166,16 @@ const firebaseConfig = {
 
   const START_H = 8, END_H = 22, ADMIN_PASS = "admin1234*";
   let curDate = new Date(), selDate = null, selStart = null, selEnd = null;
-  let bookings = [], volunteers = [], isAdmin = false;
+  let bookings = [], volunteers = [], isAdmin = false, isSystemLocked = false;
   const slots = [];
   for(let i=START_H; i<=END_H; i++) slots.push(`${String(i).padStart(2,'0')}:00`);
+
+  // Sync: Stare Blocare Sistem
+  db.ref('settings/isLocked').on('value', snap => {
+    isSystemLocked = snap.val() || false;
+    document.getElementById("systemLockToggle").checked = isSystemLocked;
+    updateMaintenanceUI();
+  });
 
   db.ref('volunteers').on('value', snap => {
     const val = snap.val();
@@ -153,6 +188,24 @@ const firebaseConfig = {
     renderCalendar();
     renderAdmin();
   });
+
+  function updateMaintenanceUI() {
+    const msg = document.getElementById("maintenanceMsg");
+    if(isSystemLocked) {
+        msg.style.display = "block";
+        if(!isAdmin) {
+            document.getElementById("bookingControls").classList.remove("unlocked");
+            document.getElementById("calendarContainer").classList.remove("unlocked");
+        }
+    } else {
+        msg.style.display = "none";
+        if(!isAdmin) verifyPhone(); // Re-verifică accesul dacă era deja logat
+    }
+  }
+
+  function toggleSystemLock(state) {
+    db.ref('settings/isLocked').set(state);
+  }
 
   function adminLogin() {
     const pass = prompt("Parola administrator:");
@@ -171,6 +224,11 @@ const firebaseConfig = {
 
   function verifyPhone() {
     if(isAdmin) return;
+    if(isSystemLocked) {
+        document.getElementById("authMessage").innerText = "⚠️ Mentenanță în curs...";
+        document.getElementById("authMessage").style.color = "orange";
+        return;
+    }
     const phone = document.getElementById("phoneAuth").value.trim();
     const found = volunteers.find(v => v.phone === phone);
     const msg = document.getElementById("authMessage");
@@ -188,13 +246,17 @@ const firebaseConfig = {
   }
 
   function confirmBooking() {
+    if(isSystemLocked && !isAdmin) return alert("Sistemul este blocat pentru mentenanță!");
+    
     const name = document.getElementById("userName").value.trim();
     const phone = isAdmin ? "MANUAL_ADMIN" : document.getElementById("phoneAuth").value;
     if(!name || !selDate || selStart === null || selEnd === null) return alert("Date incomplete!");
+    
     if(!isAdmin) {
         const count = bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth()).length;
         if(count >= 2) return alert("Ai atins limita de 2 rezervări pe lună!");
     }
+    
     const id = Date.now();
     db.ref('bookings/'+id).set({
       id, name, phone, date: selDate.toISOString(),
@@ -211,11 +273,7 @@ const firebaseConfig = {
     [...bookings].sort((a,b) => new Date(a.date) - new Date(b.date))
       .filter(b => new Date(b.date).getMonth() === curDate.getMonth())
       .forEach(b => {
-        // Logica de afișare etichetă manual vs ascundere telefon voluntar
-        const phoneLabel = (b.phone === "MANUAL_ADMIN") 
-          ? `<br><span class="manual-tag">MANUAL_ADMIN</span>` 
-          : "";
-
+        const phoneLabel = (b.phone === "MANUAL_ADMIN") ? `<br><span class="manual-tag">MANUAL_ADMIN</span>` : "";
         t.innerHTML += `<tr>
           <td><strong>${b.name}</strong>${phoneLabel}</td>
           <td>${new Date(b.date).toLocaleDateString('ro-RO')}<br>${b.start} - ${b.end}</td>
@@ -230,13 +288,11 @@ const firebaseConfig = {
     const phone = document.getElementById("newVolPhone").value.trim();
     if(!name || !phone) return alert("Completează ambele câmpuri!");
     db.ref('volunteers').push({ name, phone });
-    document.getElementById("newVolName").value = "";
-    document.getElementById("newVolPhone").value = "";
+    document.getElementById("newVolName").value = ""; document.getElementById("newVolPhone").value = "";
   }
 
   function renderVolunteersList() {
-    const list = document.getElementById("volunteersList");
-    list.innerHTML = "";
+    const list = document.getElementById("volunteersList"); list.innerHTML = "";
     volunteers.forEach(v => {
         list.innerHTML += `<tr><td><strong>${v.name}</strong></td><td>${v.phone}</td><td style="text-align:right;"><button onclick="deleteVolunteer('${v.id}')" style="color:red; background:none; border:none; cursor:pointer;">❌ Șterge</button></td></tr>`;
     });
