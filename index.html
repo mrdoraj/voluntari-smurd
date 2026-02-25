@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări - Listă Voluntari Vizibilă</title>
+  <title>SMURD Rezervări - Listă Curată</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -37,12 +37,12 @@
     .admin-panel { margin-top: 30px; padding-top: 20px; border-top: 3px double #e2e8f0; display: none; }
     .admin-section { background: #f8fafc; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #cbd5e1; }
     
-    /* Stil Tabel Voluntari Listat */
     .vol-list-container { max-height: 200px; overflow-y: auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 10px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
     th { background: #f1f5f9; position: sticky; top: 0; }
     .ts-label { font-size: 10px; color: var(--gray); display: block; }
+    .manual-tag { font-size: 10px; background: #fee2e2; color: #ef4444; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
 
     @media print { .no-print { display: none !important; } .admin-panel { display: block !important; } }
   </style>
@@ -51,7 +51,7 @@
 
 <div class="container">
   <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-    <h2 style="margin:0; color:var(--danger)">SMURD Rezervări ISU Prahova - D1</h2>
+    <h2 style="margin:0; color:var(--danger)">SMURD Rezervări</h2>
     <button id="adminLoginBtn" onclick="adminLogin()">🔑 Admin Login</button>
   </div>
 
@@ -98,21 +98,12 @@
           <input type="text" id="newVolPhone" placeholder="Telefon" style="flex:1;">
           <button onclick="addVolunteer()" class="confirm-btn" style="background:var(--primary); width: auto; padding: 0 20px;">Adaugă Voluntar</button>
         </div>
-
         <div class="vol-list-container">
             <table>
-                <thead>
-                    <tr>
-                        <th>Nume Voluntar</th>
-                        <th>Număr Telefon</th>
-                        <th style="text-align:right;">Acțiune</th>
-                    </tr>
-                </thead>
-                <tbody id="volunteersList">
-                    </tbody>
+                <thead><tr><th>Nume Voluntar</th><th>Telefon</th><th style="text-align:right;">Acțiune</th></tr></thead>
+                <tbody id="volunteersList"></tbody>
             </table>
         </div>
-        <p style="font-size:11px; color:gray; margin-top:5px;">* Doar numerele de mai sus pot accesa calendarul în modul Voluntar.</p>
     </div>
 
     <div class="admin-section">
@@ -131,7 +122,7 @@
 
 <script>
   // CONFIGURARE FIREBASE
-  const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
   authDomain: "rezervari-smurd.firebaseapp.com",
   databaseURL: "https://rezervari-smurd-default-rtdb.europe-west1.firebasedatabase.app",
@@ -151,14 +142,12 @@
   const slots = [];
   for(let i=START_H; i<=END_H; i++) slots.push(`${String(i).padStart(2,'0')}:00`);
 
-  // Sync Firebase: Voluntari
   db.ref('volunteers').on('value', snap => {
     const val = snap.val();
     volunteers = val ? Object.keys(val).map(key => ({id: key, ...val[key]})) : [];
     renderVolunteersList();
   });
 
-  // Sync Firebase: Rezervări
   db.ref('bookings').on('value', snap => {
     bookings = snap.val() ? Object.values(snap.val()) : [];
     renderCalendar();
@@ -177,7 +166,6 @@
         const nameInp = document.getElementById("userName");
         nameInp.readOnly = false; nameInp.style.background = "#fff";
         nameInp.placeholder = "Scrie numele manual..."; nameInp.value = "";
-        alert("Acces Admin deblocat.");
     } else { alert("Parolă incorectă."); }
   }
 
@@ -186,7 +174,6 @@
     const phone = document.getElementById("phoneAuth").value.trim();
     const found = volunteers.find(v => v.phone === phone);
     const msg = document.getElementById("authMessage");
-
     if(found) {
         document.getElementById("bookingControls").classList.add("unlocked");
         document.getElementById("calendarContainer").classList.add("unlocked");
@@ -198,6 +185,44 @@
         msg.innerText = "❌ Număr neautorizat!"; msg.style.color = "red";
         document.getElementById("userName").value = "";
     }
+  }
+
+  function confirmBooking() {
+    const name = document.getElementById("userName").value.trim();
+    const phone = isAdmin ? "MANUAL_ADMIN" : document.getElementById("phoneAuth").value;
+    if(!name || !selDate || selStart === null || selEnd === null) return alert("Date incomplete!");
+    if(!isAdmin) {
+        const count = bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth()).length;
+        if(count >= 2) return alert("Ai atins limita de 2 rezervări pe lună!");
+    }
+    const id = Date.now();
+    db.ref('bookings/'+id).set({
+      id, name, phone, date: selDate.toISOString(),
+      start: slots[selStart], end: slots[selEnd],
+      createdAt: new Date().toLocaleString('ro-RO')
+    });
+    alert("Rezervare confirmată!");
+    if(isAdmin) document.getElementById("userName").value = "";
+    selStart = null; selEnd = null; renderTimeSlots();
+  }
+
+  function renderAdmin() {
+    const t = document.getElementById("adminTable"); t.innerHTML = "";
+    [...bookings].sort((a,b) => new Date(a.date) - new Date(b.date))
+      .filter(b => new Date(b.date).getMonth() === curDate.getMonth())
+      .forEach(b => {
+        // Logica de afișare etichetă manual vs ascundere telefon voluntar
+        const phoneLabel = (b.phone === "MANUAL_ADMIN") 
+          ? `<br><span class="manual-tag">MANUAL_ADMIN</span>` 
+          : "";
+
+        t.innerHTML += `<tr>
+          <td><strong>${b.name}</strong>${phoneLabel}</td>
+          <td>${new Date(b.date).toLocaleDateString('ro-RO')}<br>${b.start} - ${b.end}</td>
+          <td><span class="ts-label">${b.createdAt || 'N/A'}</span></td>
+          <td class="no-print"><button onclick="deleteBooking(${b.id})" style="color:red; background:none; border:none; cursor:pointer;">❌</button></td>
+        </tr>`;
+      });
   }
 
   function addVolunteer() {
@@ -213,54 +238,23 @@
     const list = document.getElementById("volunteersList");
     list.innerHTML = "";
     volunteers.forEach(v => {
-        list.innerHTML += `<tr>
-            <td><strong>${v.name}</strong></td>
-            <td>${v.phone}</td>
-            <td style="text-align:right;"><button onclick="deleteVolunteer('${v.id}')" style="color:red; background:none; border:none; cursor:pointer;">❌ Șterge</button></td>
-        </tr>`;
+        list.innerHTML += `<tr><td><strong>${v.name}</strong></td><td>${v.phone}</td><td style="text-align:right;"><button onclick="deleteVolunteer('${v.id}')" style="color:red; background:none; border:none; cursor:pointer;">❌ Șterge</button></td></tr>`;
     });
   }
 
-  function deleteVolunteer(id) {
-    if(confirm("Elimini acest voluntar din lista de acces?")) db.ref('volunteers/' + id).remove();
-  }
-
-  function confirmBooking() {
-    const name = document.getElementById("userName").value.trim();
-    const phone = isAdmin ? "MANUAL_ADMIN" : document.getElementById("phoneAuth").value;
-    if(!name || !selDate || selStart === null || selEnd === null) return alert("Date incomplete!");
-
-    if(!isAdmin) {
-        const count = bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth()).length;
-        if(count >= 2) return alert("Ai atins limita de 2 rezervări pe lună!");
-    }
-
-    const id = Date.now();
-    db.ref('bookings/'+id).set({
-      id, name, phone, date: selDate.toISOString(),
-      start: slots[selStart], end: slots[selEnd],
-      createdAt: new Date().toLocaleString('ro-RO')
-    });
-    alert("Rezervare confirmată!");
-    if(isAdmin) document.getElementById("userName").value = "";
-    selStart = null; selEnd = null; renderTimeSlots();
-  }
-
-  // CALENDAR LOGIC
+  function deleteVolunteer(id) { if(confirm("Elimini voluntarul?")) db.ref('volunteers/' + id).remove(); }
+  function deleteBooking(id) { if(confirm("Ștergi rezervarea?")) db.ref('bookings/'+id).remove(); }
   function isDayFull(d) {
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
     if (dayB.length === 0) return false;
-    for(let i=0; i<slots.length-1; i++) {
-      if(!dayB.some(b => slots[i] >= b.start && slots[i] < b.end)) return false;
-    }
+    for(let i=0; i<slots.length-1; i++) { if(!dayB.some(b => slots[i] >= b.start && slots[i] < b.end)) return false; }
     return true;
   }
 
   function renderCalendar() {
     const cal = document.getElementById("calendar"); cal.innerHTML = "";
     document.getElementById("monthLabel").innerText = curDate.toLocaleString('ro-RO',{month:'long',year:'numeric'});
-    const y = curDate.getFullYear(), m = curDate.getMonth();
-    const lastDay = new Date(y, m+1, 0).getDate();
+    const y = curDate.getFullYear(), m = curDate.getMonth(), lastDay = new Date(y, m+1, 0).getDate();
     for(let i=1; i<=lastDay; i++) {
       const d = new Date(y, m, i);
       const btn = document.createElement("button"); btn.innerText = i;
@@ -299,23 +293,7 @@
     });
   }
 
-  function renderAdmin() {
-    const t = document.getElementById("adminTable"); t.innerHTML = "";
-    [...bookings].sort((a,b) => new Date(a.date) - new Date(b.date))
-      .filter(b => new Date(b.date).getMonth() === curDate.getMonth())
-      .forEach(b => {
-        t.innerHTML += `<tr>
-          <td><strong>${b.name}</strong><br><small>${b.phone}</small></td>
-          <td>${new Date(b.date).toLocaleDateString('ro-RO')}<br>${b.start} - ${b.end}</td>
-          <td><span class="ts-label">${b.createdAt || 'N/A'}</span></td>
-          <td class="no-print"><button onclick="deleteBooking(${b.id})" style="color:red; border:none; background:none; cursor:pointer;">❌</button></td>
-        </tr>`;
-      });
-  }
-
-  function deleteBooking(id) { if(confirm("Ștergi această rezervare?")) db.ref('bookings/'+id).remove(); }
   function changeMonth(off) { curDate.setMonth(curDate.getMonth() + off); renderCalendar(); renderAdmin(); }
-
   renderCalendar();
 </script>
 </body>
