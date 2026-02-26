@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări Pro - v3.3</title>
+  <title>SMURD Programări Pro - v3.5</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -57,7 +57,7 @@
 <header class="header">
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="width:14px; height:14px; background:var(--danger); border-radius:50%; box-shadow: 0 0 10px var(--danger);"></div>
-    <h1 style="font-size:1.2rem; margin:0;">SMURD Rezervări</h1>
+    <h1 style="font-size:1.2rem; margin:0;">SMURD Programări</h1>
   </div>
   <button class="btn btn-primary" onclick="adminLogin()">🔓 Admin Login</button>
 </header>
@@ -73,7 +73,7 @@
     <div class="card locked-overlay" id="bookingBox">
       <h3>🕒 Interval Orar</h3>
       <div class="time-grid" id="timeGrid"></div>
-      <button id="confirmBtn" class="btn btn-primary" style="width:100%; margin-top:1.5rem; padding: 1rem;" onclick="processBooking()" disabled>Confirmă Rezervarea</button>
+      <button id="confirmBtn" class="btn btn-primary" style="width:100%; margin-top:1.5rem; padding: 1rem;" onclick="processBooking()" disabled>Confirmă Programarea</button>
     </div>
   </aside>
 
@@ -107,7 +107,7 @@
       </div>
 
       <div class="card">
-        <h3>📅 Administrare Rezervări</h3>
+        <h3>📅 Administrare Programări</h3>
         <div style="display:flex; gap:10px; flex-wrap: wrap;">
             <button class="btn btn-primary" style="margin-bottom:1rem;" onclick="printBookingsByMonth()">🖨️ Printează pe Luni</button>
             <button class="btn btn-danger-outline" style="margin-bottom:1rem;" onclick="bulkDelete('book-check', 'bookings')">Șterge Selecția</button>
@@ -226,6 +226,7 @@
     if(!name) return;
 
     const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
+    const timestamp = new Date().toLocaleString('ro-RO'); // Momentul creării
 
     const conflict = bookings.some(b => 
       new Date(b.date).toDateString() === selDate.toDateString() && 
@@ -238,7 +239,7 @@
     }
 
     if(!isAdmin && bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth()).length >= 2) {
-      alert("Limita de 2 rezervări/lună atinsă!"); return;
+      alert("Limita de 2 programări/lună atinsă!"); return;
     }
 
     const id = Date.now();
@@ -249,13 +250,13 @@
         date: selDate.toISOString(), 
         start, 
         end,
-        isManual: isAdmin // Etichetăm dacă este introdusă manual de admin
+        createdAt: timestamp,
+        isManual: isAdmin 
     })
     .then(() => { alert("Succes!"); selStart=null; selEnd=null; renderSlots(); });
   }
 
   function printBookingsByMonth() {
-    // Grupăm rezervările pe luni
     const groups = {};
     bookings.forEach(b => {
         const d = new Date(b.date);
@@ -267,23 +268,23 @@
     let printContent = `
       <html>
         <head>
-          <title>Rezervări SMURD pe Luni</title>
+          <title>Raport Lunar Programări SMURD</title>
           <style>
             body { font-family: sans-serif; padding: 20px; color: #333; }
             .month-section { page-break-after: always; margin-bottom: 40px; }
             .month-section:last-child { page-break-after: auto; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
             th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
-            th { background-color: #f9f9f9; }
+            th { background-color: #f2f2f2; }
             h2 { color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 5px; }
-            .admin-tag { font-size: 0.8em; color: #dc2626; font-weight: bold; }
+            .source-tag { font-size: 0.8em; color: #666; font-style: italic; }
+            .admin-bold { color: #dc2626; font-weight: bold; }
           </style>
         </head>
         <body>
-          <h1>Raport Rezervări SMURD</h1>
+          <h1>Raport Detaliat Programări SMURD</h1>
     `;
 
-    // Sortăm lunile cronologic pentru afișare
     const sortedMonthKeys = Object.keys(groups).sort((a,b) => {
         const dateA = new Date(groups[a][0].date);
         const dateB = new Date(groups[b][0].date);
@@ -298,22 +299,24 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Data</th>
-                            <th>Interval</th>
                             <th>Nume Voluntar</th>
+                            <th>Data Programată</th>
+                            <th>Interval</th>
+                            <th>Etichetă / Creată la</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${monthBookings.map(b => `
+                        ${monthBookings.map(b => {
+                            const sursa = b.isManual ? '<span class="admin-bold">Administrator</span>' : 'Utilizator';
+                            const creatLa = b.createdAt || "Nespecificat";
+                            return `
                             <tr>
+                                <td><b>${b.name}</b></td>
                                 <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
                                 <td>${b.start} - ${b.end}</td>
-                                <td>
-                                    ${b.name} 
-                                    ${b.isManual ? '<span class="admin-tag">(Admin)</span>' : ''}
-                                </td>
-                            </tr>
-                        `).join('')}
+                                <td class="source-tag">${sursa}<br>(${creatLa})</td>
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
