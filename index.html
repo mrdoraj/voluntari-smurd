@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări Pro - Final</title>
+  <title>SMURD Rezervări Pro - v3.3</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -48,6 +48,8 @@
     th { background: var(--gray-100); padding: 12px; text-align: left; }
     td { padding: 12px; border-top: 1px solid var(--gray-200); }
     .locked-overlay { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
+    
+    .badge-admin { background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; margin-left: 5px; border: 1px solid #fecaca; }
   </style>
 </head>
 <body>
@@ -106,7 +108,10 @@
 
       <div class="card">
         <h3>📅 Administrare Rezervări</h3>
-        <button class="btn btn-danger-outline" style="margin-bottom:1rem;" onclick="bulkDelete('book-check', 'bookings')">Șterge Selecția</button>
+        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+            <button class="btn btn-primary" style="margin-bottom:1rem;" onclick="printBookingsByMonth()">🖨️ Printează pe Luni</button>
+            <button class="btn btn-danger-outline" style="margin-bottom:1rem;" onclick="bulkDelete('book-check', 'bookings')">Șterge Selecția</button>
+        </div>
         <div class="table-container">
           <table>
             <thead><tr><th><input type="checkbox" onclick="toggleSelectAll('book-check', this.checked)"></th><th>Nume</th><th>Data</th><th>Interval</th></tr></thead>
@@ -222,7 +227,6 @@
 
     const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
 
-    // --- VERIFICARE DE SIGURANȚĂ (DOUBLE CHECK) ---
     const conflict = bookings.some(b => 
       new Date(b.date).toDateString() === selDate.toDateString() && 
       ((start >= b.start && start < b.end) || (end > b.start && end <= b.end))
@@ -238,8 +242,90 @@
     }
 
     const id = Date.now();
-    db.ref('bookings/' + id).set({ id, name, phone, date: selDate.toISOString(), start, end })
-      .then(() => { alert("Succes!"); selStart=null; selEnd=null; renderSlots(); });
+    db.ref('bookings/' + id).set({ 
+        id, 
+        name, 
+        phone, 
+        date: selDate.toISOString(), 
+        start, 
+        end,
+        isManual: isAdmin // Etichetăm dacă este introdusă manual de admin
+    })
+    .then(() => { alert("Succes!"); selStart=null; selEnd=null; renderSlots(); });
+  }
+
+  function printBookingsByMonth() {
+    // Grupăm rezervările pe luni
+    const groups = {};
+    bookings.forEach(b => {
+        const d = new Date(b.date);
+        const key = d.toLocaleString('ro-RO', { month: 'long', year: 'numeric' });
+        if(!groups[key]) groups[key] = [];
+        groups[key].push(b);
+    });
+
+    let printContent = `
+      <html>
+        <head>
+          <title>Rezervări SMURD pe Luni</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            .month-section { page-break-after: always; margin-bottom: 40px; }
+            .month-section:last-child { page-break-after: auto; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+            th { background-color: #f9f9f9; }
+            h2 { color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 5px; }
+            .admin-tag { font-size: 0.8em; color: #dc2626; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>Raport Rezervări SMURD</h1>
+    `;
+
+    // Sortăm lunile cronologic pentru afișare
+    const sortedMonthKeys = Object.keys(groups).sort((a,b) => {
+        const dateA = new Date(groups[a][0].date);
+        const dateB = new Date(groups[b][0].date);
+        return dateA - dateB;
+    });
+
+    sortedMonthKeys.forEach(month => {
+        const monthBookings = groups[month].sort((a,b) => new Date(a.date) - new Date(b.date));
+        printContent += `
+            <div class="month-section">
+                <h2>Luna: ${month}</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Interval</th>
+                            <th>Nume Voluntar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${monthBookings.map(b => `
+                            <tr>
+                                <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
+                                <td>${b.start} - ${b.end}</td>
+                                <td>
+                                    ${b.name} 
+                                    ${b.isManual ? '<span class="admin-tag">(Admin)</span>' : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    });
+
+    printContent += `</body></html>`;
+    
+    const win = window.open('', '_blank');
+    win.document.write(printContent);
+    win.document.close();
+    win.print();
   }
 
   function filterVolunteers() {
@@ -262,7 +348,16 @@
   function renderAdminBookings() {
     const t = document.getElementById("bookTable"); t.innerHTML = "";
     bookings.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(b => {
-      t.innerHTML += `<tr><td><input type="checkbox" class="book-check" value="${b.id}"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td></tr>`;
+      t.innerHTML += `
+        <tr>
+            <td><input type="checkbox" class="book-check" value="${b.id}"></td>
+            <td>
+                ${b.name} 
+                ${b.isManual ? '<span class="badge-admin">Admin</span>' : ''}
+            </td>
+            <td>${new Date(b.date).toLocaleDateString()}</td>
+            <td>${b.start}-${b.end}</td>
+        </tr>`;
     });
   }
 
