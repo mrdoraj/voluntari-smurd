@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări Pro v3.0</title>
+  <title>SMURD Rezervări Pro - Final</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -17,61 +17,37 @@
       --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     }
 
-    body { 
-      font-family: 'Inter', system-ui, sans-serif; 
-      background-color: var(--gray-50); color: var(--text); 
-      margin: 0; padding-bottom: 50px;
-    }
-
-    /* Header & Layout */
-    .header {
-      background: white; border-bottom: 1px solid var(--gray-200);
-      padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center;
-      position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow);
-    }
-
+    body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--gray-50); color: var(--text); margin: 0; padding-bottom: 50px; }
+    .header { background: white; border-bottom: 1px solid var(--gray-200); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
     .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
     @media (min-width: 1024px) { .container { grid-template-columns: 380px 1fr; } }
 
-    /* Cards */
     .card { background: white; border-radius: 12px; border: 1px solid var(--gray-200); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
     .card h3 { margin-top: 0; font-size: 1.1rem; color: var(--gray-700); display: flex; align-items: center; gap: 8px; }
 
-    /* Forms & Buttons */
-    input, textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--gray-200); box-sizing: border-box; font-size: 14px; transition: 0.2s; }
-    input:focus { outline: none; border-color: var(--primary); ring: 2px var(--primary); }
-    
+    input, textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--gray-200); box-sizing: border-box; font-size: 14px; }
     .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; border: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
     .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark); }
     .btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
     .btn-danger-outline:hover { background: var(--danger); color: white; }
 
-    /* Calendar */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
-    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-100); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
-    .cal-day:hover { border-color: var(--primary); }
+    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-100); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; }
     .cal-day.selected { background: var(--primary) !important; color: white !important; }
     .day-free { background: #f0fdf4; color: #166534; }
-    .day-full { background: #fee2e2; color: #991b1b; cursor: not-allowed; }
+    .day-full { background: #fee2e2; color: #991b1b; }
     .day-past { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); }
 
-    /* Time Slots */
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-    .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: 500; font-size: 0.85rem; }
+    .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: 500; }
     .time-slot.active { background: var(--primary); color: white; border-color: var(--primary); }
     .time-slot.taken { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
 
-    /* Tables */
     .table-container { overflow-x: auto; margin-top: 1rem; border: 1px solid var(--gray-200); border-radius: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th { background: var(--gray-100); padding: 12px; text-align: left; }
     td { padding: 12px; border-top: 1px solid var(--gray-200); }
-    
-    .locked-overlay { opacity: 0.4; pointer-events: none; filter: grayscale(1); transition: 0.3s; }
-    .search-box { position: relative; margin-bottom: 1rem; }
-    .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray-700); }
-    .search-box input { padding-left: 35px; border: 2px solid var(--gray-200); }
+    .locked-overlay { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
   </style>
 </head>
 <body>
@@ -79,23 +55,21 @@
 <header class="header">
   <div style="display:flex; align-items:center; gap:12px;">
     <div style="width:14px; height:14px; background:var(--danger); border-radius:50%; box-shadow: 0 0 10px var(--danger);"></div>
-    <h1 style="font-size:1.2rem; margin:0; letter-spacing:-0.5px;">SMURD Rezervări</h1>
+    <h1 style="font-size:1.2rem; margin:0;">SMURD Rezervări</h1>
   </div>
-  <button class="btn btn-primary" onclick="adminLogin()">🔓 Admin</button>
+  <button class="btn btn-primary" onclick="adminLogin()">🔓 Admin Login</button>
 </header>
 
 <div class="container">
   <aside>
     <div class="card" id="authBox">
       <h3>🔑 Identificare</h3>
-      <label style="font-size: 0.7rem; font-weight: 800; color: var(--gray-700); display: block; margin-bottom: 5px;">NUMĂR TELEFON</label>
-      <input type="text" id="phoneAuth" placeholder="07xx xxx xxx" oninput="verifyPhone()">
+      <input type="text" id="phoneAuth" placeholder="Introduceți Telefonul..." oninput="verifyPhone()">
       <div id="authMsg" style="margin-top:10px; font-weight:700; font-size:0.85rem;"></div>
     </div>
 
     <div class="card locked-overlay" id="bookingBox">
       <h3>🕒 Interval Orar</h3>
-      <p style="font-size:0.75rem; color: var(--gray-700);">Selectați ora de <b>start</b> și ora de <b>sfârșit</b>:</p>
       <div class="time-grid" id="timeGrid"></div>
       <button id="confirmBtn" class="btn btn-primary" style="width:100%; margin-top:1.5rem; padding: 1rem;" onclick="processBooking()" disabled>Confirmă Rezervarea</button>
     </div>
@@ -103,7 +77,7 @@
 
   <main>
     <div class="card locked-overlay" id="calendarBox">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 id="monthLabel" style="margin:0">Iunie 2024</h3>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-danger-outline" onclick="changeMonth(-1)" id="prevBtn">←</button>
@@ -116,26 +90,15 @@
     <div id="adminPanel" style="display:none;">
       <div class="card">
         <h3>👥 Gestiune Voluntari (Whitelist)</h3>
-        <textarea id="bulkInput" rows="3" placeholder="Nume, Telefon (Ex: Ion Popescu, 0722123456) - unul pe rând" style="margin-bottom:1rem;"></textarea>
-        
-        <div class="search-box">
-          <input type="text" id="volSearch" onkeyup="filterVolunteers()" placeholder="Caută după nume sau telefon...">
+        <textarea id="bulkInput" rows="2" placeholder="Nume, Telefon (unul pe rând)" style="margin-bottom:1rem;"></textarea>
+        <input type="text" id="volSearch" onkeyup="filterVolunteers()" placeholder="🔍 Caută voluntar..." style="margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between;">
+          <button class="btn btn-primary" onclick="importBulk()">Import</button>
+          <button class="btn btn-danger-outline" onclick="bulkDelete('vol-check', 'volunteers')">Șterge Selectați</button>
         </div>
-
-        <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
-          <button class="btn btn-primary" onclick="importBulk()">Adaugă Lista</button>
-          <button class="btn btn-danger-outline" onclick="bulkDelete('vol-check', 'volunteers')">Șterge Selecția</button>
-        </div>
-
         <div class="table-container">
           <table>
-            <thead>
-              <tr>
-                <th style="width:40px;"><input type="checkbox" onclick="toggleSelectAll('vol-check', this.checked)"></th>
-                <th>Nume Voluntar</th>
-                <th>Telefon</th>
-              </tr>
-            </thead>
+            <thead><tr><th><input type="checkbox" onclick="toggleSelectAll('vol-check', this.checked)"></th><th>Nume</th><th>Telefon</th></tr></thead>
             <tbody id="volTable"></tbody>
           </table>
         </div>
@@ -143,17 +106,10 @@
 
       <div class="card">
         <h3>📅 Administrare Rezervări</h3>
-        <button class="btn btn-danger-outline" style="margin-bottom:1rem;" onclick="bulkDelete('book-check', 'bookings')">Șterge Rezervările Selectate</button>
+        <button class="btn btn-danger-outline" style="margin-bottom:1rem;" onclick="bulkDelete('book-check', 'bookings')">Șterge Selecția</button>
         <div class="table-container">
           <table>
-            <thead>
-              <tr>
-                <th style="width:40px;"><input type="checkbox" onclick="toggleSelectAll('book-check', this.checked)"></th>
-                <th>Voluntar</th>
-                <th>Data</th>
-                <th>Interval</th>
-              </tr>
-            </thead>
+            <thead><tr><th><input type="checkbox" onclick="toggleSelectAll('book-check', this.checked)"></th><th>Nume</th><th>Data</th><th>Interval</th></tr></thead>
             <tbody id="bookTable"></tbody>
           </table>
         </div>
@@ -163,7 +119,6 @@
 </div>
 
 <script>
-  // FIREBASE CONFIG
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -183,7 +138,6 @@
   const hours = [];
   for(let i=START_H; i<=END_H; i++) hours.push(`${String(i).padStart(2,'0')}:00`);
 
-  // DB Listeners
   db.ref('volunteers').on('value', snap => {
     const data = snap.val();
     volunteers = data ? Object.keys(data).map(k => ({id:k, ...data[k]})) : [];
@@ -195,14 +149,12 @@
     renderCalendar(); renderAdminBookings();
   });
 
-  // Auth & Admin Logic
   function adminLogin() {
-    if(prompt("Introduceți parola de administrator:") === ADMIN_PASS) {
+    if(prompt("Parola Admin:") === ADMIN_PASS) {
       isAdmin = true;
       document.getElementById("adminPanel").style.display = "block";
       document.getElementById("authBox").style.display = "none";
-      unlockInterface();
-      renderCalendar();
+      unlockUI(); renderCalendar();
     }
   }
 
@@ -210,55 +162,34 @@
     if(isAdmin) return;
     const phone = document.getElementById("phoneAuth").value.trim();
     const user = volunteers.find(v => v.phone === phone);
-    const msg = document.getElementById("authMsg");
-    
-    if(user) {
-      msg.innerText = "✅ Bun venit, " + user.name; msg.style.color = "var(--success)";
-      unlockInterface();
-    } else {
-      msg.innerText = "❌ Neautorizat"; msg.style.color = "var(--danger)";
-      lockInterface();
-    }
+    if(user) { unlockUI(); document.getElementById("authMsg").innerText = "✅ " + user.name; }
+    else { lockUI(); document.getElementById("authMsg").innerText = "❌ Neautorizat"; }
   }
 
-  function unlockInterface() {
-    document.getElementById("calendarBox").classList.remove("locked-overlay");
-    document.getElementById("bookingBox").classList.remove("locked-overlay");
-  }
+  function unlockUI() { ["calendarBox", "bookingBox"].forEach(id => document.getElementById(id).classList.remove("locked-overlay")); }
+  function lockUI() { ["calendarBox", "bookingBox"].forEach(id => document.getElementById(id).classList.add("locked-overlay")); }
 
-  function lockInterface() {
-    document.getElementById("calendarBox").classList.add("locked-overlay");
-    document.getElementById("bookingBox").classList.add("locked-overlay");
-  }
-
-  // Calendar Logic (Limitat la luna curentă și următoarea)
   function renderCalendar() {
     const grid = document.getElementById("calendarGrid"); grid.innerHTML = "";
     const today = new Date();
-    const isTodayMonth = curDate.getMonth() === today.getMonth() && curDate.getFullYear() === today.getFullYear();
+    const isTodayMonth = curDate.getMonth() === today.getMonth();
     
     document.getElementById("prevBtn").disabled = isTodayMonth;
-    document.getElementById("nextBtn").disabled = !isTodayMonth; // Doar 2 luni permise
-
+    document.getElementById("nextBtn").disabled = !isTodayMonth;
     document.getElementById("monthLabel").innerText = curDate.toLocaleString('ro-RO', {month:'long', year:'numeric'});
-    const y = curDate.getFullYear(), m = curDate.getMonth(), lastDay = new Date(y, m+1, 0).getDate();
 
+    const y = curDate.getFullYear(), m = curDate.getMonth(), lastDay = new Date(y, m+1, 0).getDate();
     for(let i=1; i<=lastDay; i++) {
       const d = new Date(y, m, i);
-      const btn = document.createElement("button");
-      btn.className = "cal-day";
-      btn.innerText = i;
-
+      const btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
       const isPast = d < new Date().setHours(0,0,0,0);
-      const dayBookings = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
-
-      if(isPast && !isAdmin) {
-        btn.classList.add("day-past");
-      } else {
-        btn.classList.add(dayBookings.length > 5 ? "day-full" : "day-free");
+      const dayB = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
+      
+      if(isPast && !isAdmin) btn.classList.add("day-past");
+      else {
+        btn.classList.add(dayB.length > 4 ? "day-full" : "day-free");
         btn.onclick = () => { selDate = d; selStart=null; selEnd=null; renderCalendar(); renderSlots(); };
       }
-
       if(selDate && d.toDateString() === selDate.toDateString()) btn.classList.add("selected");
       grid.appendChild(btn);
     }
@@ -266,28 +197,17 @@
 
   function renderSlots() {
     const grid = document.getElementById("timeGrid"); grid.innerHTML = "";
-    if(!selDate) return;
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === selDate.toDateString());
-
     hours.forEach((h, i) => {
-      const slot = document.createElement("div");
-      slot.className = "time-slot";
-      slot.innerText = h;
-
-      const taken = dayB.some(b => h >= b.start && h < b.end);
-      if(taken && !isAdmin) {
-        slot.classList.add("taken");
-      } else {
-        if( (selStart !== null && i === selStart) || (selEnd !== null && i === selEnd) || 
-            (selStart !== null && selEnd !== null && i > Math.min(selStart, selEnd) && i < Math.max(selStart, selEnd)) ) {
-          slot.classList.add("active");
-        }
-
+      const slot = document.createElement("div"); slot.className = "time-slot"; slot.innerText = h;
+      if(dayB.some(b => h >= b.start && h < b.end) && !isAdmin) slot.classList.add("taken");
+      else {
+        if((selStart !== null && i === selStart) || (selEnd !== null && i === selEnd) || 
+           (selStart !== null && selEnd !== null && i > Math.min(selStart, selEnd) && i < Math.max(selStart, selEnd))) slot.classList.add("active");
         slot.onclick = () => {
           if(selStart === null || (selStart !== null && selEnd !== null)) { selStart = i; selEnd = null; }
           else { selEnd = i; }
-          renderSlots();
-          document.getElementById("confirmBtn").disabled = (selStart === null || selEnd === null);
+          renderSlots(); document.getElementById("confirmBtn").disabled = (selStart === null || selEnd === null);
         };
       }
       grid.appendChild(slot);
@@ -297,78 +217,63 @@
   function processBooking() {
     const phone = isAdmin ? "ADMIN" : document.getElementById("phoneAuth").value;
     const user = volunteers.find(v => v.phone === phone);
-    const name = isAdmin ? prompt("Nume Voluntar:") : (user ? user.name : "Anonim");
-    
+    const name = isAdmin ? prompt("Nume:") : user.name;
     if(!name) return;
 
-    // Verificare limită 2 rezervări pentru utilizatori
-    if(!isAdmin) {
-      const userMonthBookings = bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth());
-      if(userMonthBookings.length >= 2) return alert("Eroare: Ai atins limita de 2 rezervări pe lună!");
+    const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
+
+    // --- VERIFICARE DE SIGURANȚĂ (DOUBLE CHECK) ---
+    const conflict = bookings.some(b => 
+      new Date(b.date).toDateString() === selDate.toDateString() && 
+      ((start >= b.start && start < b.end) || (end > b.start && end <= b.end))
+    );
+
+    if(conflict && !isAdmin) {
+        alert("Eroare: Acest interval a fost ocupat între timp! Vă rugăm alegeți altul.");
+        renderSlots(); return;
     }
 
-    const startIdx = Math.min(selStart, selEnd);
-    const endIdx = Math.max(selStart, selEnd);
+    if(!isAdmin && bookings.filter(b => b.phone === phone && new Date(b.date).getMonth() === selDate.getMonth()).length >= 2) {
+      alert("Limita de 2 rezervări/lună atinsă!"); return;
+    }
+
     const id = Date.now();
-
-    db.ref('bookings/' + id).set({
-      id, name, phone, 
-      date: selDate.toISOString(), 
-      start: hours[startIdx], 
-      end: hours[endIdx]
-    }).then(() => {
-      alert("Rezervare salvată cu succes!");
-      selStart = null; selEnd = null; renderSlots();
-    });
+    db.ref('bookings/' + id).set({ id, name, phone, date: selDate.toISOString(), start, end })
+      .then(() => { alert("Succes!"); selStart=null; selEnd=null; renderSlots(); });
   }
 
-  // Admin Search & Bulk Delete
   function filterVolunteers() {
-    const query = document.getElementById("volSearch").value.toUpperCase();
+    const q = document.getElementById("volSearch").value.toUpperCase();
     const rows = document.getElementById("volTable").getElementsByTagName("tr");
-    for(let r of rows) {
-      const txt = r.innerText.toUpperCase();
-      r.style.display = txt.includes(query) ? "" : "none";
-    }
+    for(let r of rows) r.style.display = r.innerText.toUpperCase().includes(q) ? "" : "none";
   }
 
-  function toggleSelectAll(className, checked) {
-    const cbs = document.getElementsByClassName(className);
-    for(let c of cbs) c.checked = checked;
-  }
-
-  function bulkDelete(className, ref) {
-    const selected = Array.from(document.getElementsByClassName(className)).filter(c => c.checked).map(c => c.value);
-    if(selected.length > 0 && confirm(`Ștergi ${selected.length} elemente?`)) {
-      selected.forEach(id => db.ref(ref + '/' + id).remove());
-    }
+  function toggleSelectAll(cls, chk) { const cbs = document.getElementsByClassName(cls); for(let c of cbs) c.checked = chk; }
+  function bulkDelete(cls, ref) {
+    const sel = Array.from(document.getElementsByClassName(cls)).filter(c => c.checked).map(c => c.value);
+    if(sel.length > 0 && confirm(`Ștergi ${sel.length} elemente?`)) sel.forEach(id => db.ref(ref+'/'+id).remove());
   }
 
   function renderVolunteers() {
-    const table = document.getElementById("volTable"); table.innerHTML = "";
-    volunteers.forEach(v => {
-      table.innerHTML += `<tr><td><input type="checkbox" class="vol-check" value="${v.id}"></td><td><b>${v.name}</b></td><td>${v.phone}</td></tr>`;
-    });
+    const t = document.getElementById("volTable"); t.innerHTML = "";
+    volunteers.forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="vol-check" value="${v.id}"></td><td><b>${v.name}</b></td><td>${v.phone}</td></tr>`);
   }
 
   function renderAdminBookings() {
-    const table = document.getElementById("bookTable"); table.innerHTML = "";
+    const t = document.getElementById("bookTable"); t.innerHTML = "";
     bookings.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(b => {
-      table.innerHTML += `<tr><td><input type="checkbox" class="book-check" value="${b.id}"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start} - ${b.end}</td></tr>`;
+      t.innerHTML += `<tr><td><input type="checkbox" class="book-check" value="${b.id}"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td></tr>`;
     });
   }
 
   function importBulk() {
-    const lines = document.getElementById("bulkInput").value.split('\n');
-    lines.forEach(line => {
-      const parts = line.split(',');
-      if(parts.length === 2) db.ref('volunteers').push({ name: parts[0].trim(), phone: parts[1].trim() });
+    document.getElementById("bulkInput").value.split('\n').forEach(l => {
+      const p = l.split(','); if(p.length === 2) db.ref('volunteers').push({name: p[0].trim(), phone: p[1].trim()});
     });
     document.getElementById("bulkInput").value = "";
   }
 
   function changeMonth(o) { curDate.setMonth(curDate.getMonth() + o); renderCalendar(); }
-
   renderCalendar();
 </script>
 </body>
