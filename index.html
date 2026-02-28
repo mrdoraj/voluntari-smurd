@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v4.7 - Reguli & Mentenanță</title>
+  <title>SMURD Programări v4.8 - Restricție Timp</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -24,7 +24,6 @@
     .btn-primary { background: var(--primary); color: white; }
     .btn-danger { background: var(--danger); color: white; }
     
-    /* Toggle Switch Mentenanta */
     .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
@@ -38,6 +37,7 @@
     .day-free { background: #f0fdf4; color: #166534; }
     .day-full { background: #fee2e2; color: #991b1b; }
     .day-past { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); }
+    .day-locked { opacity: 0.4; cursor: not-allowed; background: #fefce8; color: #a16207; border-style: dashed; }
 
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
     .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; }
@@ -45,7 +45,7 @@
     .time-slot.taken { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
     
     .locked-overlay { opacity: 0.4; pointer-events: none !important; filter: grayscale(1); }
-    #maintBar { display: none; background: var(--warning); color: white; text-align: center; padding: 15px; font-weight: bold; font-size: 1.1rem; position: relative; margin-bottom: 15px; border-radius: 8px; }
+    #maintBar { display: none; background: var(--warning); color: white; text-align: center; padding: 15px; font-weight: bold; margin-bottom: 15px; border-radius: 8px; }
     
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
@@ -57,7 +57,7 @@
 <header class="header">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.1rem; margin:0;">Programări SMURD v4.7</h1>
+    <h1 style="font-size:1.1rem; margin:0;">Programări SMURD v4.8</h1>
   </div>
   <div>
     <span id="admName" style="font-weight:bold; color:var(--primary); margin-right:10px;"></span>
@@ -68,7 +68,7 @@
 
 <div class="container">
   <aside>
-    <div id="maintBar">⚠️ MOD MENTENANȚĂ ACTIV: Programările noi sunt suspendate de către administrator.</div>
+    <div id="maintBar">⚠️ MOD MENTENANȚĂ ACTIV: Programările noi sunt suspendate.</div>
 
     <div class="card" id="uAuth">
       <h3>🔑 Identificare</h3>
@@ -84,7 +84,8 @@
     <div class="card locked-overlay" id="tBox">
       <h3>🕒 Interval Orare</h3>
       <div class="time-grid" id="tGrid"></div>
-      <button id="cBtn" class="btn btn-primary" style="width:100%; margin-top:1.5rem; justify-content:center;" onclick="saveB()" disabled>Confirmă Programarea</button>
+      <p id="limitMsg" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; margin-top: 10px;"></p>
+      <button id="cBtn" class="btn btn-primary" style="width:100%; margin-top:10px; justify-content:center;" onclick="saveB()" disabled>Confirmă Programarea</button>
     </div>
   </aside>
 
@@ -92,12 +93,13 @@
     <div class="card locked-overlay" id="cBox">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 id="mLab" style="margin:0;">Calendar</h3>
-        <div>
+        <div style="display: flex; gap: 5px;">
           <button class="btn" onclick="chM(-1)">←</button>
           <button class="btn" onclick="chM(1)">→</button>
         </div>
       </div>
       <div class="calendar-grid" id="cGrid"></div>
+      <p id="calendarNote" style="font-size: 0.75rem; color: #666; margin-top: 10px; font-style: italic;"></p>
     </div>
 
     <div id="admP" style="display:none;">
@@ -177,6 +179,9 @@
     document.getElementById("uAuth").style.display = isA ? "none" : "block";
     document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
+    
+    document.getElementById("calendarNote").innerText = isA ? "Mod Admin: Acces nelimitat." : "Utilizator: Programări permise doar pentru luna curentă și următoarea.";
+
     if(isA) lk(false); else if(isM) lk(true);
     rCal();
   });
@@ -197,7 +202,7 @@
     rCal(); rBTab();
   });
 
-  // --- VALIDARI ---
+  // --- LOGIC ---
   function vPh() {
     if(isA || isM) return;
     const p = document.getElementById("pAuth").value.trim();
@@ -216,17 +221,40 @@
     const g = document.getElementById("cGrid"); g.innerHTML = "";
     document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'});
     const y = curD.getFullYear(), m = curD.getMonth(), last = new Date(y, m+1, 0).getDate();
+    
+    // Calcul luna curenta si luna urmatoare
+    const now = new Date();
+    const thisMonth = now.getMonth(), thisYear = now.getFullYear();
+    const nextMonth = (thisMonth + 1) % 12;
+    const nextYear = (thisMonth === 11) ? thisYear + 1 : thisYear;
+
     for(let i=1; i<=last; i++) {
       const d = new Date(y, m, i), btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
       const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
-      if(d < new Date().setHours(0,0,0,0) && !isA) btn.classList.add("day-past");
-      else {
+      
+      const isPast = d < new Date().setHours(0,0,0,0);
+      const isAllowedMonth = (y === thisYear && m === thisMonth) || (y === nextYear && m === nextMonth);
+
+      if(isPast && !isA) {
+        btn.classList.add("day-past");
+      } else if (!isAllowedMonth && !isA) {
+        btn.classList.add("day-locked");
+        btn.title = "Programările pentru această lună sunt încă blocate.";
+      } else {
         btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free");
-        btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); };
+        btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); checkLimit(); };
       }
       if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
       g.appendChild(btn);
     }
+  }
+
+  function checkLimit() {
+    if(isA) { document.getElementById("limitMsg").innerText = ""; return; }
+    const p = document.getElementById("pAuth").value.trim();
+    if(!selD) return;
+    const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth() && new Date(b.date).getFullYear() === selD.getFullYear()).length;
+    document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Ai atins limita de 2 programări/lună!" : "";
   }
 
   function rSlt() {
@@ -244,7 +272,6 @@
     });
   }
 
-  // --- SALVARE CU LIMITA DE 2/LUNA ---
   function saveB() {
     let n, p, o;
     if(isA) { 
@@ -253,26 +280,12 @@
     } else { 
       p=document.getElementById("pAuth").value.trim(); 
       const v = vols.find(u=>u.phone===p);
-      if(!v) return alert("Eroare identificare!");
-      
-      // Verificare limita 2 programari/luna pentru utilizator simplu
-      const lunaCurenta = selD.getMonth();
-      const anCurent = selD.getFullYear();
-      const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === lunaCurenta && new Date(b.date).getFullYear() === anCurent).length;
-      
-      if(count >= 2) return alert("⚠️ Ai atins limita de 2 programări pentru această lună!");
-      
+      const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth() && new Date(b.date).getFullYear() === selD.getFullYear()).length;
+      if(count >= 2) return alert("Limita de 2 programări pe lună a fost atinsă!");
       n=v.name; o="User"; 
     }
-
-    db.ref('bookings').push({ 
-      name:n, phone:p, date:selD.toISOString(), 
-      start:hrs[Math.min(selS, selE)], end:hrs[Math.max(selS, selE)], 
-      operator:o 
-    }).then(() => { 
-      alert("✅ Programare salvată cu succes!"); 
-      selS=null; selE=null; rSlt(); 
-    }).catch(e => alert("Eroare Firebase: " + e.message));
+    db.ref('bookings').push({ name:n, phone:p, date:selD.toISOString(), start:hrs[Math.min(selS, selE)], end:hrs[Math.max(selS, selE)], operator:o })
+      .then(() => { alert("Programare salvată!"); selS=null; selE=null; rSlt(); checkLimit(); });
   }
 
   function rBTab() {
@@ -289,13 +302,7 @@
 
   function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
-  function bDel(c, r) { 
-    const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); 
-    if(s.length>0 && confirm("Ștergi elementele selectate?")) {
-      s.forEach(id => db.ref(r+'/'+id).remove());
-      alert("Elemente șterse.");
-    }
-  }
+  function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
   function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); }
   rCal();
 </script>
