@@ -21,22 +21,32 @@
     .header { background: white; border-bottom: 1px solid var(--gray-200); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
     .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
     @media (min-width: 1024px) { .container { grid-template-columns: 380px 1fr; } }
+    
     .card { background: white; border-radius: 12px; border: 1px solid var(--gray-200); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
     .card h3 { margin-top: 0; font-size: 1.1rem; color: var(--gray-700); display: flex; align-items: center; gap: 8px; }
+    
     input, textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--gray-200); box-sizing: border-box; font-size: 14px; margin-bottom: 8px; }
     .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; border: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+    
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
-    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-100); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; }
+    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-100); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; position: relative; }
     .cal-day.selected { background: var(--primary) !important; color: white !important; }
     .day-free { background: #f0fdf4; color: #166534; }
     .day-full { background: #fee2e2; color: #991b1b; }
     .day-past { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); }
+
+    /* ALERTĂ URGENTĂ */
+    .urgent-blink { border: 2px solid var(--danger) !important; animation: blink 1.5s infinite; }
+    .urgent-blink::after { content: "⚠"; position: absolute; top: -5px; right: -2px; font-size: 10px; color: var(--danger); }
+    @keyframes blink { 0%, 100% { background-color: #fff; } 50% { background-color: #fee2e2; } }
+
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
     .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: 500; }
     .time-slot.active { background: var(--primary); color: white; border-color: var(--primary); }
     .time-slot.taken { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
+    
     .table-container { overflow-x: auto; margin-top: 1rem; border: 1px solid var(--gray-200); border-radius: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th { background: var(--gray-100); padding: 12px; text-align: left; }
@@ -75,7 +85,7 @@
   <main>
     <div class="card locked-overlay" id="calendarBox">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3 id="monthLabel" style="margin:0">Iunie 2024</h3>
+        <h3 id="monthLabel" style="margin:0">Incarcare...</h3>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-danger-outline" onclick="changeMonth(-1)" id="prevBtn">←</button>
           <button class="btn btn-danger-outline" onclick="changeMonth(1)" id="nextBtn">→</button>
@@ -88,8 +98,7 @@
       <div class="card">
         <h3>👥 Gestiune Voluntari (Whitelist)</h3>
         <textarea id="bulkInput" rows="2" placeholder="Nume, Telefon (unul pe rând)"></textarea>
-        <input type="text" id="volSearch" onkeyup="filterVolunteers()" placeholder="🔍 Caută voluntar...">
-        <div style="display:flex; justify-content:space-between;">
+        <div style="display:flex; justify-content:space-between; margin-top:10px;">
           <button class="btn btn-primary" onclick="importBulk()">Import</button>
           <button class="btn btn-danger-outline" onclick="bulkDelete('vol-check', 'volunteers')">Șterge Selectați</button>
         </div>
@@ -116,6 +125,7 @@
 </div>
 
 <script>
+  // ATENȚIE: Înlocuiește cu datele tale din consola Firebase -> Project Settings
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -132,32 +142,21 @@
 
   let curDate = new Date(), selDate = null, selStart = null, selEnd = null;
   let bookings = [], volunteers = [], isAdmin = false;
-  const START_H = 8, END_H = 22;
   const hours = [];
-  for(let i=START_H; i<=END_H; i++) hours.push(`${String(i).padStart(2,'0')}:00`);
+  for(let i=8; i<=22; i++) hours.push(`${String(i).padStart(2,'0')}:00`);
 
-  // Monitorizare stare autentificare
   auth.onAuthStateChanged(user => {
-    if (user) {
-      isAdmin = true;
-      document.getElementById("adminPanel").style.display = "block";
-      document.getElementById("authBox").style.display = "none";
-      document.getElementById("loginBtn").style.display = "none";
-      document.getElementById("logoutBtn").style.display = "inline-flex";
-      unlockUI(); renderCalendar();
-    } else {
-      isAdmin = false;
-      document.getElementById("adminPanel").style.display = "none";
-      document.getElementById("authBox").style.display = "block";
-      document.getElementById("loginBtn").style.display = "inline-flex";
-      document.getElementById("logoutBtn").style.display = "none";
-      lockUI();
-    }
+    isAdmin = !!user;
+    document.getElementById("adminPanel").style.display = isAdmin ? "block" : "none";
+    document.getElementById("authBox").style.display = isAdmin ? "none" : "block";
+    document.getElementById("loginBtn").style.display = isAdmin ? "none" : "inline-flex";
+    document.getElementById("logoutBtn").style.display = isAdmin ? "inline-flex" : "none";
+    if(isAdmin) unlockUI(); else lockUI();
+    renderCalendar();
   });
 
   db.ref('volunteers').on('value', snap => {
-    const data = snap.val();
-    volunteers = data ? Object.keys(data).map(k => ({id:k, ...data[k]})) : [];
+    volunteers = snap.val() ? Object.keys(snap.val()).map(k => ({id:k, ...snap.val()[k]})) : [];
     renderVolunteers();
   });
 
@@ -168,26 +167,17 @@
 
   async function adminLogin() {
     const email = prompt("Email Admin:");
-    const password = prompt("Parolă Admin:");
-    if(email && password) {
-      try {
-        await auth.signInWithEmailAndPassword(email, password);
-      } catch (e) {
-        alert("Eroare: " + e.message);
-      }
-    }
+    const pass = prompt("Parolă:");
+    if(email && pass) auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Eroare acces!"));
   }
 
-  function adminLogout() {
-    auth.signOut();
-  }
+  function adminLogout() { auth.signOut(); }
 
   function verifyPhone() {
-    if(isAdmin) return;
     const phone = document.getElementById("phoneAuth").value.trim();
     const user = volunteers.find(v => v.phone === phone);
-    if(user) { unlockUI(); document.getElementById("authMsg").innerText = "✅ " + user.name; }
-    else { lockUI(); document.getElementById("authMsg").innerText = "❌ Neautorizat"; }
+    if(user) { unlockUI(); document.getElementById("authMsg").innerText = "✅ Bun venit, " + user.name; }
+    else { lockUI(); document.getElementById("authMsg").innerText = "❌ Telefon neînregistrat"; }
   }
 
   function unlockUI() { ["calendarBox", "bookingBox"].forEach(id => document.getElementById(id).classList.remove("locked-overlay")); }
@@ -196,9 +186,8 @@
   function renderCalendar() {
     const grid = document.getElementById("calendarGrid"); grid.innerHTML = "";
     const today = new Date();
-    const isTodayMonth = curDate.getMonth() === today.getMonth();
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
     
-    document.getElementById("prevBtn").disabled = isTodayMonth;
     document.getElementById("monthLabel").innerText = curDate.toLocaleString('ro-RO', {month:'long', year:'numeric'});
 
     const y = curDate.getFullYear(), m = curDate.getMonth(), lastDay = new Date(y, m+1, 0).getDate();
@@ -210,7 +199,9 @@
       
       if(isPast && !isAdmin) btn.classList.add("day-past");
       else {
-        btn.classList.add(dayB.length > 4 ? "day-full" : "day-free");
+        btn.classList.add(dayB.length >= 4 ? "day-full" : "day-free");
+        // Alerta Urgentă pentru ziua de mâine
+        if(d.toDateString() === tomorrow.toDateString() && dayB.length < 2) btn.classList.add("urgent-blink");
         btn.onclick = () => { selDate = d; selStart=null; selEnd=null; renderCalendar(); renderSlots(); };
       }
       if(selDate && d.toDateString() === selDate.toDateString()) btn.classList.add("selected");
@@ -245,34 +236,21 @@
     if(!name) return;
 
     const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
-
-    const conflict = bookings.some(b => 
-      new Date(b.date).toDateString() === selDate.toDateString() && 
-      ((start >= b.start && start < b.end) || (end > b.start && end <= b.end))
-    );
-
-    if(conflict && !isAdmin) {
-        alert("Eroare: Intervalul a fost ocupat!"); return;
-    }
-
     const id = Date.now();
+
     db.ref('bookings/' + id).set({ id, name, phone, date: selDate.toISOString(), start, end })
-      .then(() => { alert("Rezervare confirmată!"); selStart=null; selEnd=null; renderSlots(); });
+      .then(() => {
+        // Confirmare Detaliată
+        const dataRo = selDate.toLocaleDateString('ro-RO', { weekday: 'long', day: 'numeric', month: 'long' });
+        alert(`✅ REZERVARE CONFIRMATĂ!\n\nVoluntar: ${name}\nData: ${dataRo}\nInterval: ${start} - ${end}\n\nTe așteptăm la tură!`);
+        selStart=null; selEnd=null; renderSlots();
+      });
   }
 
-  function filterVolunteers() {
-    const q = document.getElementById("volSearch").value.toUpperCase();
-    const rows = document.getElementById("volTable").getElementsByTagName("tr");
-    for(let r of rows) r.style.display = r.innerText.toUpperCase().includes(q) ? "" : "none";
-  }
-
-  function toggleSelectAll(cls, chk) { const cbs = document.getElementsByClassName(cls); for(let c of cbs) c.checked = chk; }
-  
+  function toggleSelectAll(cls, chk) { Array.from(document.getElementsByClassName(cls)).forEach(c => c.checked = chk); }
   function bulkDelete(cls, ref) {
     const sel = Array.from(document.getElementsByClassName(cls)).filter(c => c.checked).map(c => c.value);
-    if(sel.length > 0 && confirm(`Ștergi ${sel.length} elemente?`)) {
-        sel.forEach(id => db.ref(ref+'/'+id).remove().catch(e => alert("Lipsă permisiuni admin!")));
-    }
+    if(sel.length > 0 && confirm(`Ștergi ${sel.length} elemente?`)) sel.forEach(id => db.ref(ref+'/'+id).remove());
   }
 
   function renderVolunteers() {
