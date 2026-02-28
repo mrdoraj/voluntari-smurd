@@ -128,7 +128,7 @@
 
       <div class="card" id="printArea">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3 style="margin:0;">📋 Programări Gărzi</h3>
+          <h3 style="margin:0;">📋 Programări voluntari</h3>
           <button class="btn btn-success no-print" onclick="window.print()">🖨️ Print</button>
         </div>
         <div style="overflow-x:auto;">
@@ -190,7 +190,7 @@
     hrs.forEach((h, i) => {
       const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
       
-      // LOGICA NOUA: Un slot este ocupat DOAR daca se afla STRICT intre inceputul si sfarsitul unei alte gărzi.
+      // LOGICA NOUA: Un slot este ocupat DOAR daca se afla STRICT intre inceputul si sfarsitul unei alte programări.
       // Exemplu: Daca avem garda 08:00 - 12:00, sloturile 08:00, 09:00, 10:00, 11:00 sunt ocupate.
       // Slotul 12:00 RAMANE LIBER pentru urmatorul voluntar.
       const isTaken = dBs.some(b => h >= b.start && h < b.end);
@@ -302,3 +302,4 @@
 </script>
 </body>
 </html>
+
