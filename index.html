@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v4.8 - Restricție Timp</title>
+  <title>SMURD Programări v4.9 - Print Pro</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -23,7 +23,9 @@
     .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
     
+    /* Toggle Switch */
     .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
@@ -31,13 +33,13 @@
     input:checked + .slider { background-color: var(--danger); }
     input:checked + .slider:before { transform: translateX(24px); }
 
+    /* Calendar & Slots */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
     .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .cal-day.selected { background: var(--primary) !important; color: white !important; }
     .day-free { background: #f0fdf4; color: #166534; }
     .day-full { background: #fee2e2; color: #991b1b; }
-    .day-past { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); }
-    .day-locked { opacity: 0.4; cursor: not-allowed; background: #fefce8; color: #a16207; border-style: dashed; }
+    .day-past, .day-locked { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); }
 
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
     .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; }
@@ -50,14 +52,25 @@
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
+
+    /* PRINT RULES */
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+      .card { border: none; box-shadow: none; }
+      table { border: 1px solid #000; }
+      th, td { border: 1px solid #000; color: black !important; }
+    }
   </style>
 </head>
 <body>
 
-<header class="header">
+<header class="header no-print">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.1rem; margin:0;">Programări SMURD v4.8</h1>
+    <h1 style="font-size:1.1rem; margin:0;">Programări SMURD v4.9</h1>
   </div>
   <div>
     <span id="admName" style="font-weight:bold; color:var(--primary); margin-right:10px;"></span>
@@ -67,7 +80,7 @@
 </header>
 
 <div class="container">
-  <aside>
+  <aside class="no-print">
     <div id="maintBar">⚠️ MOD MENTENANȚĂ ACTIV: Programările noi sunt suspendate.</div>
 
     <div class="card" id="uAuth">
@@ -90,7 +103,7 @@
   </aside>
 
   <main>
-    <div class="card locked-overlay" id="cBox">
+    <div class="card locked-overlay no-print" id="cBox">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 id="mLab" style="margin:0;">Calendar</h3>
         <div style="display: flex; gap: 5px;">
@@ -99,11 +112,10 @@
         </div>
       </div>
       <div class="calendar-grid" id="cGrid"></div>
-      <p id="calendarNote" style="font-size: 0.75rem; color: #666; margin-top: 10px; font-style: italic;"></p>
     </div>
 
     <div id="admP" style="display:none;">
-      <div class="card" style="border: 2px solid var(--warning);">
+      <div class="card no-print" style="border: 2px solid var(--warning);">
         <h3>⚙️ Control Mentenanță</h3>
         <div style="display:flex; align-items:center; gap:15px; padding:10px;">
           <span>Acces Voluntari: <b>OFF</b></span>
@@ -115,18 +127,29 @@
         </div>
       </div>
 
-      <div class="card">
-        <h3>📋 Administrare Programări</h3>
+      <div class="card" id="printArea">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3>📋 Tabel Programări (Cronologic)</h3>
+          <button class="btn btn-success no-print" onclick="window.print()">🖨️ Printează Lista</button>
+        </div>
         <div style="overflow-x:auto;">
           <table>
-            <thead><tr><th><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Nume</th><th>Data</th><th>Interval</th></tr></thead>
+            <thead>
+              <tr>
+                <th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th>
+                <th>Voluntar</th>
+                <th>Data Gardă</th>
+                <th>Interval</th>
+                <th>Creat la</th>
+              </tr>
+            </thead>
             <tbody id="bTab"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selectate</button>
+        <button class="btn btn-danger no-print" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selectate</button>
       </div>
 
-      <div class="card">
+      <div class="card no-print">
         <h3>👥 Listă Voluntari</h3>
         <textarea id="bIn" rows="2" placeholder="Nume, Telefon (linie nouă)" style="width:100%; border-radius:8px; padding:10px;"></textarea>
         <button class="btn btn-primary" style="margin-top:5px; width:100%;" onclick="impV()">Importă</button>
@@ -143,6 +166,7 @@
 </div>
 
 <script>
+  // CONFIGURARE FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -179,9 +203,6 @@
     document.getElementById("uAuth").style.display = isA ? "none" : "block";
     document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
-    
-    document.getElementById("calendarNote").innerText = isA ? "Mod Admin: Acces nelimitat." : "Utilizator: Programări permise doar pentru luna curentă și următoarea.";
-
     if(isA) lk(false); else if(isM) lk(true);
     rCal();
   });
@@ -222,25 +243,18 @@
     document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'});
     const y = curD.getFullYear(), m = curD.getMonth(), last = new Date(y, m+1, 0).getDate();
     
-    // Calcul luna curenta si luna urmatoare
     const now = new Date();
-    const thisMonth = now.getMonth(), thisYear = now.getFullYear();
-    const nextMonth = (thisMonth + 1) % 12;
-    const nextYear = (thisMonth === 11) ? thisYear + 1 : thisYear;
+    const isAllowedMonth = (y === now.getFullYear() && m === now.getMonth()) || 
+                           (y === (now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear()) && m === (now.getMonth() + 1) % 12);
 
     for(let i=1; i<=last; i++) {
       const d = new Date(y, m, i), btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
       const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
-      
       const isPast = d < new Date().setHours(0,0,0,0);
-      const isAllowedMonth = (y === thisYear && m === thisMonth) || (y === nextYear && m === nextMonth);
 
-      if(isPast && !isA) {
-        btn.classList.add("day-past");
-      } else if (!isAllowedMonth && !isA) {
-        btn.classList.add("day-locked");
-        btn.title = "Programările pentru această lună sunt încă blocate.";
-      } else {
+      if(isPast && !isA) btn.classList.add("day-past");
+      else if (!isAllowedMonth && !isA) btn.classList.add("day-locked");
+      else {
         btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free");
         btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); checkLimit(); };
       }
@@ -250,11 +264,10 @@
   }
 
   function checkLimit() {
-    if(isA) { document.getElementById("limitMsg").innerText = ""; return; }
+    if(isA) return;
     const p = document.getElementById("pAuth").value.trim();
-    if(!selD) return;
-    const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth() && new Date(b.date).getFullYear() === selD.getFullYear()).length;
-    document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Ai atins limita de 2 programări/lună!" : "";
+    const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth()).length;
+    document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Limită 2/lună atinsă!" : "";
   }
 
   function rSlt() {
@@ -273,25 +286,47 @@
   }
 
   function saveB() {
-    let n, p, o;
+    let n, p;
+    const createdAt = new Date().toLocaleString('ro-RO'); // Timestamp pentru eticheta "Creat la"
+    
     if(isA) { 
-      const s = document.getElementById("vSel"); if(!s.value) return alert("Selectează voluntar!"); 
-      p=s.value; n=s.options[s.selectedIndex].text; o=auth.currentUser.email; 
+      const s = document.getElementById("vSel"); if(!s.value) return alert("Alege voluntar!"); 
+      p=s.value; n=s.options[s.selectedIndex].text; 
     } else { 
       p=document.getElementById("pAuth").value.trim(); 
       const v = vols.find(u=>u.phone===p);
-      const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth() && new Date(b.date).getFullYear() === selD.getFullYear()).length;
-      if(count >= 2) return alert("Limita de 2 programări pe lună a fost atinsă!");
-      n=v.name; o="User"; 
+      const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth()).length;
+      if(count >= 2) return alert("Limita de 2 programări/lună atinsă!");
+      n=v.name;
     }
-    db.ref('bookings').push({ name:n, phone:p, date:selD.toISOString(), start:hrs[Math.min(selS, selE)], end:hrs[Math.max(selS, selE)], operator:o })
-      .then(() => { alert("Programare salvată!"); selS=null; selE=null; rSlt(); checkLimit(); });
+
+    db.ref('bookings').push({ 
+      name: n, 
+      phone: p, 
+      date: selD.toISOString(), 
+      start: hrs[Math.min(selS, selE)], 
+      end: hrs[Math.max(selS, selE)], 
+      createdAt: createdAt 
+    }).then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
   }
 
   function rBTab() {
     const t = document.getElementById("bTab"); t.innerHTML = "";
-    bks.filter(b => new Date(b.date).getMonth() === curD.getMonth()).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(b => {
-      t.innerHTML += `<tr><td><input type="checkbox" class="b-ck" value="${b.id}"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td></tr>`;
+    // Sortare Cronologică: Data -> Ora de start
+    const sortedBks = bks.filter(b => new Date(b.date).getMonth() === curD.getMonth())
+    .sort((a,b) => {
+      if(a.date !== b.date) return new Date(a.date) - new Date(b.date);
+      return a.start.localeCompare(b.start);
+    });
+
+    sortedBks.forEach(b => {
+      t.innerHTML += `<tr>
+        <td class="no-print"><input type="checkbox" class="b-ck" value="${b.id}"></td>
+        <td><b>${b.name}</b></td>
+        <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
+        <td>${b.start} - ${b.end}</td>
+        <td style="font-size:0.7rem; color:#666;">${b.createdAt || 'N/A'}</td>
+      </tr>`;
     });
   }
 
