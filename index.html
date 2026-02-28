@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări v3.9.1 - Final Securizat</title>
+  <title>SMURD Programări v4.0 - Admin Control</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -40,8 +40,9 @@
     .time-slot.active { background: var(--primary); color: white; }
     .time-slot.taken { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
     
+    select, input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--gray-200); margin-top: 5px; font-family: inherit; }
     .badge-admin { background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; border: 1px solid #bfdbfe; font-weight: bold; }
-    .locked-overlay { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
+    .locked-overlay { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
 
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
     th, td { padding: 12px; border-bottom: 1px solid var(--gray-200); text-align: left; }
@@ -60,7 +61,7 @@
 <header class="header">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.2rem; margin:0;">SMURD Rezervări v3.9.1</h1>
+    <h1 style="font-size:1.2rem; margin:0;">SMURD Programări v4.0</h1>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <span id="userEmailDisplay" style="font-size: 0.8rem; font-weight: bold; color: var(--primary);"></span>
@@ -73,21 +74,29 @@
   <aside>
     <div class="card" id="authBox">
       <h3>🔑 Identificare Voluntar</h3>
-      <input type="text" id="phoneAuth" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--gray-200);" placeholder="Introduceți numărul de telefon..." oninput="verifyPhone()">
+      <input type="text" id="phoneAuth" placeholder="Introduceți numărul de telefon..." oninput="verifyPhone()">
       <div id="authMsg" style="margin-top:10px; font-weight: bold;"></div>
     </div>
 
+    <div class="card" id="adminSelectBox" style="display:none;">
+      <h3>👤 Selectează Voluntar</h3>
+      <label style="font-size:0.8rem;">Alege din baza de date:</label>
+      <select id="volSelector">
+        <option value="">-- Alege Voluntar --</option>
+      </select>
+    </div>
+
     <div class="card locked-overlay" id="bookingBox">
-      <h3>🕒 Selectare Interval</h3>
+      <h3>🕒 Interval Programare</h3>
       <div class="time-grid" id="timeGrid"></div>
-      <button id="confirmBtn" class="btn btn-primary" style="width:100%; margin-top:1.5rem; justify-content:center; padding: 12px;" onclick="processBooking()" disabled>Confirmă Rezervarea</button>
+      <button id="confirmBtn" class="btn btn-primary" style="width:100%; margin-top:1.5rem; justify-content:center; padding: 12px;" onclick="processBooking()" disabled>Confirmă Programarea</button>
     </div>
   </aside>
 
   <main>
     <div class="card locked-overlay" id="calendarBox">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3 id="monthLabel" style="margin:0;">Calendar</h3>
+        <h3 id="monthLabel" style="margin:0;">Calendar Programări</h3>
         <div>
           <button class="btn btn-danger-outline" onclick="changeMonth(-1)">←</button>
           <button class="btn btn-danger-outline" onclick="changeMonth(1)">→</button>
@@ -99,7 +108,7 @@
     <div id="adminPanel" style="display:none;">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
-          <h3>📋 Tabel Rezervări: <span id="printMonthName"></span></h3>
+          <h3>📋 Tabel Programări: <span id="printMonthName"></span></h3>
           <button class="btn btn-success" onclick="window.print()">🖨️ Printează Luna</button>
         </div>
         <div id="printArea">
@@ -116,16 +125,16 @@
             <tbody id="bookTable"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger-outline" style="margin-top:15px;" onclick="bulkDelete('book-check', 'bookings')">Șterge Rezervările Selectate</button>
+        <button class="btn btn-danger-outline" style="margin-top:15px;" onclick="bulkDelete('book-check', 'bookings')">Șterge Programările Selectate</button>
       </div>
 
       <div class="card">
         <h3>👥 Gestiune Voluntari (Whitelist)</h3>
-        <textarea id="bulkInput" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--gray-200);" placeholder="Nume, Telefon (unul pe rând)"></textarea>
+        <textarea id="bulkInput" rows="3" placeholder="Nume, Telefon (unul pe rând)"></textarea>
         <button class="btn btn-primary" style="margin-top:10px;" onclick="importBulk()">Importă Voluntari</button>
         <div style="max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid var(--gray-200); border-radius: 8px;">
           <table>
-            <thead><tr><th>Nume</th><th>Telefon</th><th class="no-print">Acțiune</th></tr></thead>
+            <thead><tr><th>Nume</th><th>Telefon</th><th class="no-print">X</th></tr></thead>
             <tbody id="volTable"></tbody>
           </table>
         </div>
@@ -155,34 +164,46 @@
   const hours = [];
   for(let i=8; i<=22; i++) hours.push(`${String(i).padStart(2,'0')}:00`);
 
+  // MONITORIZARE LOGIN
   auth.onAuthStateChanged(user => {
     isAdmin = !!user;
     currentAdminEmail = user ? user.email : "";
     document.getElementById("userEmailDisplay").innerText = user ? `Admin: ${user.email.split('@')[0]}` : "";
     document.getElementById("adminPanel").style.display = isAdmin ? "block" : "none";
+    document.getElementById("adminSelectBox").style.display = isAdmin ? "block" : "none";
     document.getElementById("authBox").style.display = isAdmin ? "none" : "block";
     document.getElementById("loginBtn").style.display = isAdmin ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isAdmin ? "inline-flex" : "none";
+    
     if(isAdmin) unlockUI(); else lockUI();
     renderCalendar();
   });
 
+  // SINCRONIZARE DATE
   db.ref('volunteers').on('value', snap => {
     volunteers = snap.val() ? Object.keys(snap.val()).map(k => ({id:k, ...snap.val()[k]})) : [];
+    updateVolSelector();
     renderVolunteers();
   });
 
   db.ref('bookings').on('value', snap => {
     bookings = snap.val() ? Object.keys(snap.val()).map(k => ({id:k, ...snap.val()[k]})) : [];
-    renderCalendar(); renderAdminBookings();
+    renderCalendar(); 
+    renderAdminBookings();
   });
 
+  function updateVolSelector() {
+    const sel = document.getElementById("volSelector");
+    sel.innerHTML = '<option value="">-- Alege Voluntar --</option>';
+    volunteers.sort((a,b) => a.name.localeCompare(b.name)).forEach(v => {
+      sel.innerHTML += `<option value="${v.phone}">${v.name} (${v.phone})</option>`;
+    });
+  }
+
   async function adminLogin() {
-    const email = prompt("Email Administrator:");
+    const email = prompt("Email Admin:");
     const pass = prompt("Parolă:");
-    if(email && pass) {
-      auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Date incorecte!"));
-    }
+    if(email && pass) auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Eroare: " + e.message));
   }
 
   function adminLogout() { auth.signOut(); }
@@ -206,8 +227,6 @@
   function renderCalendar() {
     const grid = document.getElementById("calendarGrid"); grid.innerHTML = "";
     const today = new Date();
-    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-    
     const monthStr = curDate.toLocaleString('ro-RO', {month:'long', year:'numeric'});
     document.getElementById("monthLabel").innerText = monthStr;
     document.getElementById("printMonthName").innerText = monthStr;
@@ -222,7 +241,6 @@
       if(isPast && !isAdmin) btn.classList.add("day-past");
       else {
         btn.classList.add(dayB.length >= 4 ? "day-full" : "day-free");
-        if(d.toDateString() === tomorrow.toDateString() && dayB.length < 2) btn.classList.add("urgent-blink");
         btn.onclick = () => { selDate = d; selStart=null; selEnd=null; renderCalendar(); renderSlots(); };
       }
       if(selDate && d.toDateString() === selDate.toDateString()) btn.classList.add("selected");
@@ -254,8 +272,10 @@
   function processBooking() {
     let name, phone, operator;
     if(isAdmin) {
-        name = prompt("Nume Voluntar:");
-        phone = prompt("Telefon Voluntar:");
+        const sel = document.getElementById("volSelector");
+        if(!sel.value) { alert("Selectați un voluntar din listă!"); return; }
+        phone = sel.value;
+        name = sel.options[sel.selectedIndex].text.split(' (')[0];
         operator = currentAdminEmail;
     } else {
         phone = document.getElementById("phoneAuth").value;
@@ -264,13 +284,10 @@
         operator = "Voluntar";
     }
 
-    if(!name || !phone) { alert("Date incomplete!"); return; }
     const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
-
     db.ref('bookings').push({ name, phone, date: selDate.toISOString(), start, end, operator })
       .then(() => {
-        const dataRo = selDate.toLocaleDateString('ro-RO', { weekday: 'long', day: 'numeric', month: 'long' });
-        alert(`✅ REZERVARE CONFIRMATĂ!\n\nVoluntar: ${name}\nData: ${dataRo}\nInterval: ${start} - ${end}\n\nOperat de: ${operator}`);
+        alert(`✅ Programare reușită pentru ${name}!`);
         selStart=null; selEnd=null; renderSlots();
       });
   }
@@ -283,35 +300,33 @@
     });
 
     filtered.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(b => {
-      const opBadge = b.operator && b.operator !== "Voluntar" ? `<span class="badge-admin">${b.operator.split('@')[0]}</span>` : "User";
+      const op = b.operator && b.operator !== "Voluntar" ? `<span class="badge-admin">${b.operator.split('@')[0]}</span>` : "User";
       t.innerHTML += `<tr>
         <td class="no-print"><input type="checkbox" class="book-check" value="${b.id}"></td>
         <td><b>${b.name}</b></td>
         <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
         <td>${b.start} - ${b.end}</td>
-        <td>${opBadge}</td>
+        <td>${op}</td>
       </tr>`;
     });
   }
 
   function renderVolunteers() {
     const t = document.getElementById("volTable"); t.innerHTML = "";
-    volunteers.forEach(v => t.innerHTML += `<tr><td>${v.name}</td><td>${v.phone}</td><td class="no-print"><button class="btn btn-danger-outline" onclick="db.ref('volunteers/${v.id}').remove()">X</button></td></tr>`);
+    volunteers.forEach(v => t.innerHTML += `<tr><td>${v.name}</td><td>${v.phone}</td><td class="no-print"><button onclick="db.ref('volunteers/${v.id}').remove()">X</button></td></tr>`);
   }
 
   function importBulk() {
-    const input = document.getElementById("bulkInput").value;
-    input.split('\n').forEach(l => {
+    document.getElementById("bulkInput").value.split('\n').forEach(l => {
       const p = l.split(','); if(p.length === 2) db.ref('volunteers').push({name: p[0].trim(), phone: p[1].trim()});
     });
     document.getElementById("bulkInput").value = "";
-    alert("Import finalizat!");
   }
 
   function toggleSelectAll(cls, chk) { Array.from(document.getElementsByClassName(cls)).forEach(c => c.checked = chk); }
   function bulkDelete(cls, ref) {
     const sel = Array.from(document.getElementsByClassName(cls)).filter(c => c.checked).map(c => c.value);
-    if(sel.length > 0 && confirm(`Sigur ștergi cele ${sel.length} rezervări?`)) sel.forEach(id => db.ref(ref+'/'+id).remove());
+    if(sel.length > 0 && confirm(`Ștergi ${sel.length} elemente?`)) sel.forEach(id => db.ref(ref+'/'+id).remove());
   }
 
   function changeMonth(o) { curDate.setMonth(curDate.getMonth() + o); renderCalendar(); renderAdminBookings(); }
