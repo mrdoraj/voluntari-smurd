@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v5.1 - Admin Suite</title>
+  <title>SMURD Programări v5.3 - Full Audit</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -57,6 +57,8 @@
       #printArea, #printArea * { visibility: visible; }
       #printArea { position: absolute; left: 0; top: 0; width: 100%; }
       .no-print { display: none !important; }
+      th, td { border: 1px solid #ddd; }
+      .audit-cell { font-size: 0.65rem !important; }
     }
   </style>
 </head>
@@ -65,7 +67,7 @@
 <header class="header no-print">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.1rem; margin:0;">Programări SMURD v5.1</h1>
+    <h1 style="font-size:1.1rem; margin:0;">Programări SMURD v5.3</h1>
   </div>
   <div>
     <span id="admName" style="font-weight:bold; color:var(--primary); margin-right:10px;"></span>
@@ -85,7 +87,7 @@
     </div>
 
     <div class="card" id="admSel" style="display:none;">
-      <h3>👤 Selectează Voluntar</h3>
+      <h3>👤 Selectează Voluntar (Admin)</h3>
       <select id="vSel" style="width:100%; padding:12px; border-radius:8px;"></select>
     </div>
 
@@ -111,32 +113,16 @@
 
     <div id="admP" style="display:none;">
       <div class="card no-print" style="background: #f0f9ff; border: 1px solid #bae6fd;">
-        <h3>💾 Gestiune Bază de Date (Backup/Restore)</h3>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-          <button class="btn btn-primary" onclick="exportData()">📥 Descarcă Backup JSON</button>
-          <label class="btn btn-success" style="cursor: pointer;">
-            📤 Încarcă (Restore) JSON
-            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-          </label>
-        </div>
-        <p style="font-size: 0.75rem; color: #0369a1; margin-top: 10px;">* Restaurarea va înlocui toate datele curente cu cele din fișier.</p>
-      </div>
-
-      <div class="card no-print" style="border: 2px solid var(--warning);">
-        <h3>⚙️ Control Mentenanță</h3>
-        <div style="display:flex; align-items:center; gap:15px; padding:10px;">
-          <span>Acces Voluntari: <b>OFF</b></span>
-          <label class="switch">
-            <input type="checkbox" id="mTog" onchange="tglM(this.checked)">
-            <span class="slider"></span>
-          </label>
-          <span><b>ON</b> (Blocat)</span>
+        <h3>💾 Gestiune Date</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="exportData()">📥 Backup</button>
+          <label class="btn btn-success" style="cursor: pointer;">📤 Restore <input type="file" accept=".json" style="display: none;" onchange="importData(event)"></label>
         </div>
       </div>
 
       <div class="card" id="printArea">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3>📋 Programări Cronologice</h3>
+          <h3>📋 Tabel Programări</h3>
           <button class="btn btn-success no-print" onclick="window.print()">🖨️ Print</button>
         </div>
         <div style="overflow-x:auto;">
@@ -147,7 +133,7 @@
                 <th>Voluntar</th>
                 <th>Data Gardă</th>
                 <th>Interval</th>
-                <th>Creat la</th>
+                <th>Creat de / La data</th>
               </tr>
             </thead>
             <tbody id="bTab"></tbody>
@@ -157,8 +143,8 @@
       </div>
 
       <div class="card no-print">
-        <h3>👥 Listă Voluntari</h3>
-        <textarea id="bIn" rows="2" placeholder="Nume, Telefon (linie nouă)" style="width:100%; border-radius:8px; padding:10px;"></textarea>
+        <h3>👥 Management Voluntari</h3>
+        <textarea id="bIn" rows="2" placeholder="Nume, Telefon" style="width:100%; border-radius:8px; padding:10px;"></textarea>
         <button class="btn btn-primary" style="margin-top:5px; width:100%;" onclick="impV()">Importă</button>
         <div style="max-height: 200px; overflow-y: auto; margin-top:10px;">
           <table>
@@ -190,38 +176,48 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
-  // --- BACKUP & RESTORE ---
-  function exportData() {
-    db.ref().once('value', s => {
-      const data = JSON.stringify(s.val(), null, 2);
-      const blob = new Blob([data], {type: 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `backup_smurd_${new Date().toISOString().slice(0,10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
+  // --- LOGICA SALVARE ---
+  function saveB() {
+    let n, p, userType, timeStamp = new Date().toLocaleString('ro-RO');
+    
+    if(isA) { 
+      const s = document.getElementById("vSel"); 
+      if(!s.value) return alert("Alege voluntarul!"); 
+      p = s.value; n = s.options[s.selectedIndex].text; 
+      userType = `Admin (${auth.currentUser.email})`; 
+    } else { 
+      p = document.getElementById("pAuth").value.trim(); 
+      const v = vols.find(u=>u.phone===p); 
+      if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limita 2/lună!"); 
+      n = v.name; userType = "Voluntar"; 
+    }
+
+    db.ref('bookings').push({ 
+      name: n, phone: p, date: selD.toISOString(), 
+      start: hrs[Math.min(selS, selE)], end: hrs[Math.max(selS, selE)], 
+      auditUser: userType, auditTime: timeStamp 
+    }).then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
   }
 
-  function importData(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (!confirm("⚠️ ATENȚIE: Această acțiune va ȘTERGE toate datele actuale și le va înlocui cu cele din fișier. Ești sigur?")) {
-      event.target.value = ''; return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const json = JSON.parse(e.target.result);
-        db.ref().set(json).then(() => {
-          alert("✅ Restaurare reușită!");
-          location.reload();
-        });
-      } catch (err) { alert("❌ Eroare: Fișier JSON invalid."); }
-    };
-    reader.readAsText(file);
+  // --- RANDARE TABEL ---
+  function rBTab() {
+    const t = document.getElementById("bTab"); t.innerHTML = "";
+    const sorted = bks.filter(b => new Date(b.date).getMonth() === curD.getMonth()).sort((a,b) => {
+      if(a.date !== b.date) return new Date(a.date)-new Date(b.date);
+      return a.start.localeCompare(b.start);
+    });
+    sorted.forEach(b => {
+      t.innerHTML += `<tr>
+        <td class="no-print"><input type="checkbox" class="b-ck" value="${b.id}"></td>
+        <td><b>${b.name}</b></td>
+        <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
+        <td>${b.start}-${b.end}</td>
+        <td class="audit-cell" style="font-size:0.7rem; color:#666; line-height:1.2;">
+          <b>${b.auditUser || 'User'}</b><br>
+          <small>${b.auditTime || (b.createdAt || 'N/A')}</small>
+        </td>
+      </tr>`;
+    });
   }
 
   // --- MENTENANTA ---
@@ -231,8 +227,6 @@
     if(document.getElementById("mTog")) document.getElementById("mTog").checked = isM;
     if(!isA) { if(isM) lk(true); else vPh(); }
   });
-
-  function tglM(v) { db.ref('settings/maintenance').set(v); }
 
   // --- AUTH ---
   auth.onAuthStateChanged(u => {
@@ -247,10 +241,7 @@
     rCal();
   });
 
-  function admIn() { const e = prompt("Email:"), p = prompt("Parola:"); if(e && p) auth.signInWithEmailAndPassword(e,p).catch(err => alert(err.message)); }
-  function admOut() { auth.signOut(); }
-
-  // --- DATA ---
+  // --- FIREBASE SYNC ---
   db.ref('volunteers').on('value', s => {
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
     const sl = document.getElementById("vSel"); sl.innerHTML = '<option value="">-- Alege --</option>';
@@ -263,33 +254,19 @@
     rCal(); rBTab();
   });
 
-  function vPh() {
-    if(isA || isM) return;
-    const p = document.getElementById("pAuth").value.trim();
-    const v = vols.find(u => u.phone === p);
-    if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ Bun venit, " + v.name; }
-    else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; }
-  }
-
-  function lk(b) { 
-    const cb = document.getElementById("cBox"), tb = document.getElementById("tBox");
-    if(b) { cb.classList.add("locked-overlay"); tb.classList.add("locked-overlay"); }
-    else { cb.classList.remove("locked-overlay"); tb.classList.remove("locked-overlay"); }
-  }
-
+  // --- CALENDAR LOGIC ---
   function rCal() {
     const g = document.getElementById("cGrid"); g.innerHTML = "";
     document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'});
     const y = curD.getFullYear(), m = curD.getMonth(), last = new Date(y, m+1, 0).getDate();
-    const now = new Date();
-    const isAllowedMonth = (y === now.getFullYear() && m === now.getMonth()) || 
-                           (y === (now.getMonth() === 11 ? now.getFullYear()+1 : now.getFullYear()) && m === (now.getMonth() + 1) % 12);
+    const today = new Date();
+    const isAllowed = (y === today.getFullYear() && m === today.getMonth()) || (y === (today.getMonth() === 11 ? today.getFullYear()+1 : today.getFullYear()) && m === (today.getMonth() + 1) % 12);
 
     for(let i=1; i<=last; i++) {
       const d = new Date(y, m, i), btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
       const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
       if(d < new Date().setHours(0,0,0,0) && !isA) btn.classList.add("day-past");
-      else if (!isAllowedMonth && !isA) btn.classList.add("day-locked");
+      else if (!isAllowed && !isA) btn.classList.add("day-locked");
       else {
         btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free");
         btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); checkLimit(); };
@@ -297,13 +274,6 @@
       if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
       g.appendChild(btn);
     }
-  }
-
-  function checkLimit() {
-    if(isA) return;
-    const p = document.getElementById("pAuth").value.trim();
-    const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth()).length;
-    document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Limită 2/lună atinsă!" : "";
   }
 
   function rSlt() {
@@ -321,34 +291,21 @@
     });
   }
 
-  function saveB() {
-    let n, p; const cat = new Date().toLocaleString('ro-RO');
-    if(isA) { const s = document.getElementById("vSel"); if(!s.value) return alert("Alege!"); p=s.value; n=s.options[s.selectedIndex].text; }
-    else { p=document.getElementById("pAuth").value.trim(); const v = vols.find(u=>u.phone===p); if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limita atinsa!"); n=v.name; }
-    db.ref('bookings').push({ name:n, phone:p, date:selD.toISOString(), start:hrs[Math.min(selS, selE)], end:hrs[Math.max(selS, selE)], createdAt:cat })
-      .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
-  }
-
-  function rBTab() {
-    const t = document.getElementById("bTab"); t.innerHTML = "";
-    const sorted = bks.filter(b => new Date(b.date).getMonth() === curD.getMonth()).sort((a,b) => {
-      if(a.date !== b.date) return new Date(a.date)-new Date(b.date);
-      return a.start.localeCompare(b.start);
-    });
-    sorted.forEach(b => {
-      t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="b-ck" value="${b.id}"></td><td><b>${b.name}</b></td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td style="font-size:0.7rem;">${b.createdAt||''}</td></tr>`;
-    });
-  }
-
-  function rVol() {
-    const t = document.getElementById("vTab"); t.innerHTML = "";
-    vols.forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`);
-  }
-
-  function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
+  // --- UTILS ---
+  function admIn() { const e = prompt("Email:"), p = prompt("Parola:"); if(e && p) auth.signInWithEmailAndPassword(e,p).catch(err => alert(err.message)); }
+  function admOut() { auth.signOut(); }
+  function checkLimit() { if(!isA && selD) { const p = document.getElementById("pAuth").value.trim(); const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth()).length; document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Limită 2/lună atinsă!" : ""; } }
+  function tglM(v) { db.ref('settings/maintenance').set(v); }
+  function lk(b) { const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); if(b) { cb.classList.add("locked-overlay"); tb.classList.add("locked-overlay"); } else { cb.classList.remove("locked-overlay"); tb.classList.remove("locked-overlay"); } }
+  function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ Bun venit, " + v.name; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; } }
+  function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
   function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
-  function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); }
+  function rVol() { const t = document.getElementById("vTab"); t.innerHTML = ""; vols.forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); }
+  function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
+  function exportData() { db.ref().once('value', s => { const data = JSON.stringify(s.val(), null, 2), blob = new Blob([data], {type: 'application/json'}), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `backup_smurd_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }); }
+  function importData(e) { const f = e.target.files[0]; if(!f) return; if(!confirm("Suprascrii baza de date?")) return; const r = new FileReader(); r.onload = (e) => { try { const j = JSON.parse(e.target.result); db.ref().set(j).then(() => { alert("Restaurat!"); location.reload(); }); } catch(err) { alert("Eroare JSON!"); } }; r.readAsText(f); }
+
   rCal();
 </script>
 </body>
