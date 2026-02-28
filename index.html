@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v4.2 - Fix Stergere & Mentenanță</title>
+  <title>SMURD Programări v4.3 - FIX Confirmare</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -57,12 +57,12 @@
 </head>
 <body>
 
-<div id="maintenanceBar">⚠️ MOD MENTENANȚĂ ACTIV: Programările pentru utilizatori sunt temporar suspendate.</div>
+<div id="maintenanceBar">⚠️ MOD MENTENANȚĂ ACTIV: Programările sunt suspendate pentru utilizatori.</div>
 
 <header class="header">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.2rem; margin:0;">SMURD Programări v4.2</h1>
+    <h1 style="font-size:1.2rem; margin:0;">SMURD Programări v4.3</h1>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <span id="userEmailDisplay" style="font-size: 0.8rem; font-weight: bold; color: var(--primary);"></span>
@@ -106,7 +106,7 @@
     <div id="adminPanel" style="display:none;">
       <div class="card" style="border: 2px solid var(--warning);">
         <h3>⚙️ Control Sistem</h3>
-        <button id="maintBtn" class="btn btn-warning" onclick="toggleMaintenance()">Verificare stare...</button>
+        <button id="maintBtn" class="btn btn-warning" onclick="toggleMaintenance()">Verificare...</button>
       </div>
 
       <div class="card">
@@ -160,28 +160,18 @@
   const hours = [];
   for(let i=8; i<=22; i++) hours.push(`${String(i).padStart(2,'0')}:00`);
 
-  // --- LOGICA MENTENANȚĂ ---
+  // --- MENTENANȚĂ ---
   db.ref('settings/maintenance').on('value', snap => {
     isMaintenance = snap.val() === true;
     document.getElementById("maintenanceBar").style.display = isMaintenance ? "block" : "none";
-    const btn = document.getElementById("maintBtn");
-    if(btn) btn.innerText = isMaintenance ? "Dezactivează Mod Mentenanță" : "Activează Mod Mentenanță";
-    
-    if(!isAdmin) {
-      if(isMaintenance) {
-        lockUI(); 
-        document.getElementById("authMsg").innerHTML = "<span style='color:orange'>⚠️ Mentenanță activă.</span>";
-      } else {
-        verifyPhone();
-      }
-    }
+    if(document.getElementById("maintBtn")) 
+      document.getElementById("maintBtn").innerText = isMaintenance ? "Dezactivează Mod Mentenanță" : "Activează Mod Mentenanță";
+    if(!isAdmin) { if(isMaintenance) lockUI(); else verifyPhone(); }
   });
 
-  function toggleMaintenance() {
-    db.ref('settings/maintenance').set(!isMaintenance);
-  }
+  function toggleMaintenance() { db.ref('settings/maintenance').set(!isMaintenance); }
 
-  // --- LOGICA AUTH ---
+  // --- AUTH ---
   auth.onAuthStateChanged(user => {
     isAdmin = !!user;
     currentAdminEmail = user ? user.email : "";
@@ -191,19 +181,17 @@
     document.getElementById("authBox").style.display = isAdmin ? "none" : "block";
     document.getElementById("loginBtn").style.display = isAdmin ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isAdmin ? "inline-flex" : "none";
-    
     if(isAdmin) unlockUI(); else if(isMaintenance) lockUI(); else verifyPhone();
     renderCalendar();
   });
 
   async function adminLogin() {
-    const email = prompt("Email Admin:");
-    const pass = prompt("Parolă:");
-    if(email && pass) auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Eroare login!"));
+    const e = prompt("Email Admin:"), p = prompt("Parolă:");
+    if(e && p) auth.signInWithEmailAndPassword(e, p).catch(() => alert("Eroare!"));
   }
   function adminLogout() { auth.signOut(); }
 
-  // --- SINCRONIZARE DATE ---
+  // --- DATE ---
   db.ref('volunteers').on('value', snap => {
     volunteers = snap.val() ? Object.keys(snap.val()).map(k => ({id:k, ...snap.val()[k]})) : [];
     updateVolSelector(); renderVolunteers();
@@ -214,43 +202,30 @@
     renderCalendar(); renderAdminBookings();
   });
 
-  // --- UI FUNCTIONS ---
   function verifyPhone() {
     if(isAdmin || isMaintenance) return;
-    const phone = document.getElementById("phoneAuth").value.trim();
-    const user = volunteers.find(v => v.phone === phone);
-    if(user && phone !== "") { 
-      unlockUI(); 
-      document.getElementById("authMsg").innerHTML = `<span style="color:green">✅ ${user.name}</span>`; 
-    } else { 
-      lockUI(); 
-      document.getElementById("authMsg").innerHTML = phone === "" ? "" : "<span style='color:red'>❌ Neînregistrat</span>";
-    }
+    const p = document.getElementById("phoneAuth").value.trim();
+    const v = volunteers.find(u => u.phone === p);
+    if(v && p !== "") { unlockUI(); document.getElementById("authMsg").innerHTML = `<span style="color:green">✅ ${v.name}</span>`; }
+    else { lockUI(); document.getElementById("authMsg").innerHTML = p===""?"":"<span style='color:red'>❌ Neînregistrat</span>"; }
   }
 
-  function unlockUI() { 
-    document.getElementById("calendarBox").classList.remove("locked-overlay"); 
-    document.getElementById("bookingBox").classList.remove("locked-overlay"); 
-  }
-  function lockUI() { 
-    document.getElementById("calendarBox").classList.add("locked-overlay"); 
-    document.getElementById("bookingBox").classList.add("locked-overlay"); 
-  }
+  function unlockUI() { document.getElementById("calendarBox").classList.remove("locked-overlay"); document.getElementById("bookingBox").classList.remove("locked-overlay"); }
+  function lockUI() { document.getElementById("calendarBox").classList.add("locked-overlay"); document.getElementById("bookingBox").classList.add("locked-overlay"); }
 
   function renderCalendar() {
     const grid = document.getElementById("calendarGrid"); grid.innerHTML = "";
     const label = curDate.toLocaleString('ro-RO', {month:'long', year:'numeric'});
     document.getElementById("monthLabel").innerText = label;
     document.getElementById("printMonthName").innerText = label;
-
-    const y = curDate.getFullYear(), m = curDate.getMonth(), lastDay = new Date(y, m+1, 0).getDate();
-    for(let i=1; i<=lastDay; i++) {
+    const y = curDate.getFullYear(), m = curDate.getMonth(), last = new Date(y, m+1, 0).getDate();
+    for(let i=1; i<=last; i++) {
       const d = new Date(y, m, i);
       const btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
-      const dayB = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
+      const bks = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
       if(d < new Date().setHours(0,0,0,0) && !isAdmin) btn.classList.add("day-past");
       else {
-        btn.classList.add(dayB.length >= 4 ? "day-full" : "day-free");
+        btn.classList.add(bks.length >= 4 ? "day-full" : "day-free");
         btn.onclick = () => { selDate = d; selStart=null; selEnd=null; renderCalendar(); renderSlots(); };
       }
       if(selDate && d.toDateString() === selDate.toDateString()) btn.classList.add("selected");
@@ -266,8 +241,9 @@
       const slot = document.createElement("div"); slot.className = "time-slot"; slot.innerText = h;
       if(dayB.some(b => h >= b.start && h < b.end) && !isAdmin) slot.classList.add("taken");
       else {
-        if((selStart !== null && i === selStart) || (selEnd !== null && i === selEnd) || 
-           (selStart !== null && selEnd !== null && i >= Math.min(selStart, selEnd) && i <= Math.max(selStart, selEnd))) slot.classList.add("active");
+        const isSel = (selStart !== null && i === selStart) || (selEnd !== null && i === selEnd) || 
+                      (selStart !== null && selEnd !== null && i > Math.min(selStart, selEnd) && i < Math.max(selStart, selEnd));
+        if(isSel) slot.classList.add("active");
         slot.onclick = () => {
           if(selStart === null || (selStart !== null && selEnd !== null)) { selStart = i; selEnd = null; }
           else { selEnd = i; }
@@ -281,13 +257,12 @@
   function processBooking() {
     let name, phone, operator;
     if(isAdmin) {
-      const sel = document.getElementById("volSelector");
-      if(!sel.value) return alert("Alegeți un voluntar!");
-      phone = sel.value; name = sel.options[sel.selectedIndex].text; operator = currentAdminEmail;
+      const s = document.getElementById("volSelector");
+      if(!s.value) return alert("Alegeți voluntarul!");
+      phone = s.value; name = s.options[s.selectedIndex].text; operator = currentAdminEmail;
     } else {
       phone = document.getElementById("phoneAuth").value;
-      const user = volunteers.find(v => v.phone === phone);
-      name = user.name; operator = "Voluntar";
+      name = volunteers.find(v => v.phone === phone).name; operator = "Voluntar";
     }
     const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
     db.ref('bookings').push({ name, phone, date: selDate.toISOString(), start, end, operator })
@@ -300,7 +275,7 @@
       const d = new Date(b.date);
       return d.getMonth() === curDate.getMonth() && d.getFullYear() === curDate.getFullYear();
     }).sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(b => {
-      const op = b.operator && b.operator !== "Voluntar" ? `<span style="font-size:0.7rem" class="btn-primary">${b.operator.split('@')[0]}</span>` : "User";
+      const op = b.operator !== "Voluntar" ? `<span class="badge-admin">${b.operator.split('@')[0]}</span>` : "User";
       t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="book-check" value="${b.id}"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td>${op}</td></tr>`;
     });
   }
@@ -309,39 +284,3 @@
     const t = document.getElementById("volTable"); t.innerHTML = "";
     volunteers.sort((a,b) => a.name.localeCompare(b.name)).forEach(v => {
       t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="vol-check" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`;
-    });
-  }
-
-  function updateVolSelector() {
-    const sel = document.getElementById("volSelector");
-    sel.innerHTML = '<option value="">-- Alege Voluntar --</option>';
-    volunteers.forEach(v => sel.innerHTML += `<option value="${v.phone}">${v.name}</option>`);
-  }
-
-  function importBulk() {
-    document.getElementById("bulkInput").value.split('\n').forEach(l => {
-      const p = l.split(','); if(p.length === 2) db.ref('volunteers').push({name: p[0].trim(), phone: p[1].trim()});
-    });
-    document.getElementById("bulkInput").value = "";
-  }
-
-  // --- FUNCTII STERGE MULTIPLU ---
-  function toggleSelectAll(cls, chk) {
-    const items = document.getElementsByClassName(cls);
-    for(let i of items) i.checked = chk;
-  }
-
-  function bulkDelete(cls, refName) {
-    const selected = Array.from(document.getElementsByClassName(cls)).filter(i => i.checked).map(i => i.value);
-    if(selected.length === 0) return alert("Nu ai selectat nimic!");
-    if(confirm(`Ștergi definitiv ${selected.length} elemente din ${refName}?`)) {
-      selected.forEach(id => db.ref(`${refName}/${id}`).remove());
-      alert("Elemente șterse cu succes.");
-    }
-  }
-
-  function changeMonth(o) { curDate.setMonth(curDate.getMonth() + o); renderCalendar(); renderAdminBookings(); }
-  renderCalendar();
-</script>
-</body>
-</html>
