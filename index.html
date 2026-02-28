@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v4.3 - FIX Confirmare</title>
+  <title>SMURD Programări v4.4 - Corecție Finală</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -38,7 +38,7 @@
     .time-slot.active { background: var(--primary); color: white; }
     .time-slot.taken { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; cursor: not-allowed; }
     
-    select, input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--gray-200); margin-top: 5px; font-family: inherit; }
+    select, input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--gray-200); margin-top: 5px; font-family: inherit; box-sizing: border-box; }
     .locked-overlay { opacity: 0.3; pointer-events: none !important; filter: grayscale(1); }
     
     #maintenanceBar { display: none; background: var(--warning); color: white; text-align: center; padding: 10px; font-weight: bold; position: sticky; top: 60px; z-index: 99; }
@@ -62,7 +62,7 @@
 <header class="header">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.2rem; margin:0;">SMURD Programări v4.3</h1>
+    <h1 style="font-size:1.2rem; margin:0;">SMURD Programări v4.4</h1>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <span id="userEmailDisplay" style="font-size: 0.8rem; font-weight: bold; color: var(--primary);"></span>
@@ -111,7 +111,7 @@
 
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
-          <h3>📋 Tabel Programări: <span id="printMonthName"></span></h3>
+          <h3>📋 Tabel Programări</h3>
           <button class="btn btn-success" onclick="window.print()">🖨️ Printează</button>
         </div>
         <div id="printArea">
@@ -164,8 +164,8 @@
   db.ref('settings/maintenance').on('value', snap => {
     isMaintenance = snap.val() === true;
     document.getElementById("maintenanceBar").style.display = isMaintenance ? "block" : "none";
-    if(document.getElementById("maintBtn")) 
-      document.getElementById("maintBtn").innerText = isMaintenance ? "Dezactivează Mod Mentenanță" : "Activează Mod Mentenanță";
+    const mBtn = document.getElementById("maintBtn");
+    if(mBtn) mBtn.innerText = isMaintenance ? "Dezactivează Mod Mentenanță" : "Activează Mod Mentenanță";
     if(!isAdmin) { if(isMaintenance) lockUI(); else verifyPhone(); }
   });
 
@@ -181,13 +181,17 @@
     document.getElementById("authBox").style.display = isAdmin ? "none" : "block";
     document.getElementById("loginBtn").style.display = isAdmin ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isAdmin ? "inline-flex" : "none";
-    if(isAdmin) unlockUI(); else if(isMaintenance) lockUI(); else verifyPhone();
+    
+    if(isAdmin) unlockUI(); 
+    else if(isMaintenance) lockUI(); 
+    else verifyPhone();
+    
     renderCalendar();
   });
 
   async function adminLogin() {
     const e = prompt("Email Admin:"), p = prompt("Parolă:");
-    if(e && p) auth.signInWithEmailAndPassword(e, p).catch(() => alert("Eroare!"));
+    if(e && p) auth.signInWithEmailAndPassword(e, p).catch(() => alert("Eroare Autentificare!"));
   }
   function adminLogout() { auth.signOut(); }
 
@@ -206,23 +210,35 @@
     if(isAdmin || isMaintenance) return;
     const p = document.getElementById("phoneAuth").value.trim();
     const v = volunteers.find(u => u.phone === p);
-    if(v && p !== "") { unlockUI(); document.getElementById("authMsg").innerHTML = `<span style="color:green">✅ ${v.name}</span>`; }
-    else { lockUI(); document.getElementById("authMsg").innerHTML = p===""?"":"<span style='color:red'>❌ Neînregistrat</span>"; }
+    if(v && p !== "") { 
+      unlockUI(); 
+      document.getElementById("authMsg").innerHTML = `<span style="color:green">✅ Bun venit, ${v.name}</span>`; 
+    } else { 
+      lockUI(); 
+      document.getElementById("authMsg").innerHTML = p==="" ? "" : "<span style='color:red'>❌ Telefon neînregistrat</span>"; 
+    }
   }
 
-  function unlockUI() { document.getElementById("calendarBox").classList.remove("locked-overlay"); document.getElementById("bookingBox").classList.remove("locked-overlay"); }
-  function lockUI() { document.getElementById("calendarBox").classList.add("locked-overlay"); document.getElementById("bookingBox").classList.add("locked-overlay"); }
+  function unlockUI() { 
+    document.getElementById("calendarBox").classList.remove("locked-overlay"); 
+    document.getElementById("bookingBox").classList.remove("locked-overlay"); 
+  }
+  function lockUI() { 
+    document.getElementById("calendarBox").classList.add("locked-overlay"); 
+    document.getElementById("bookingBox").classList.add("locked-overlay"); 
+  }
 
   function renderCalendar() {
     const grid = document.getElementById("calendarGrid"); grid.innerHTML = "";
     const label = curDate.toLocaleString('ro-RO', {month:'long', year:'numeric'});
     document.getElementById("monthLabel").innerText = label;
-    document.getElementById("printMonthName").innerText = label;
     const y = curDate.getFullYear(), m = curDate.getMonth(), last = new Date(y, m+1, 0).getDate();
+    
     for(let i=1; i<=last; i++) {
       const d = new Date(y, m, i);
       const btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
       const bks = bookings.filter(b => new Date(b.date).toDateString() === d.toDateString());
+      
       if(d < new Date().setHours(0,0,0,0) && !isAdmin) btn.classList.add("day-past");
       else {
         btn.classList.add(bks.length >= 4 ? "day-full" : "day-free");
@@ -237,17 +253,23 @@
     const grid = document.getElementById("timeGrid"); grid.innerHTML = "";
     if(!selDate) return;
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === selDate.toDateString());
+    
     hours.forEach((h, i) => {
       const slot = document.createElement("div"); slot.className = "time-slot"; slot.innerText = h;
-      if(dayB.some(b => h >= b.start && h < b.end) && !isAdmin) slot.classList.add("taken");
-      else {
+      const isTaken = dayB.some(b => h >= b.start && h < b.end);
+      
+      if(isTaken && !isAdmin) {
+        slot.classList.add("taken");
+      } else {
         const isSel = (selStart !== null && i === selStart) || (selEnd !== null && i === selEnd) || 
                       (selStart !== null && selEnd !== null && i > Math.min(selStart, selEnd) && i < Math.max(selStart, selEnd));
         if(isSel) slot.classList.add("active");
+        
         slot.onclick = () => {
           if(selStart === null || (selStart !== null && selEnd !== null)) { selStart = i; selEnd = null; }
           else { selEnd = i; }
-          renderSlots(); document.getElementById("confirmBtn").disabled = (selStart === null || selEnd === null);
+          renderSlots();
+          document.getElementById("confirmBtn").disabled = (selStart === null || selEnd === null);
         };
       }
       grid.appendChild(slot);
@@ -256,17 +278,44 @@
 
   function processBooking() {
     let name, phone, operator;
+    
     if(isAdmin) {
       const s = document.getElementById("volSelector");
-      if(!s.value) return alert("Alegeți voluntarul!");
-      phone = s.value; name = s.options[s.selectedIndex].text; operator = currentAdminEmail;
+      if(!s.value) return alert("Selectați un voluntar!");
+      phone = s.value;
+      name = s.options[s.selectedIndex].text;
+      operator = currentAdminEmail;
     } else {
-      phone = document.getElementById("phoneAuth").value;
-      name = volunteers.find(v => v.phone === phone).name; operator = "Voluntar";
+      phone = document.getElementById("phoneAuth").value.trim();
+      const vol = volunteers.find(v => v.phone === phone);
+      if(!vol) return alert("Eroare identificare voluntar!");
+      name = vol.name;
+      operator = "Voluntar";
     }
-    const start = hours[Math.min(selStart, selEnd)], end = hours[Math.max(selStart, selEnd)];
-    db.ref('bookings').push({ name, phone, date: selDate.toISOString(), start, end, operator })
-      .then(() => { alert("Programare confirmată!"); selStart=null; selEnd=null; renderSlots(); });
+
+    if(selStart === null || selEnd === null || !selDate) return alert("Selectați intervalul orar!");
+
+    const startIdx = Math.min(selStart, selEnd);
+    const endIdx = Math.max(selStart, selEnd);
+    const startTime = hours[startIdx];
+    const endTime = hours[endIdx];
+
+    const newEntry = {
+      name: name,
+      phone: phone,
+      date: selDate.toISOString(),
+      start: startTime,
+      end: endTime,
+      operator: operator
+    };
+
+    db.ref('bookings').push(newEntry)
+      .then(() => {
+        alert("✅ Programare confirmată!");
+        selStart = null; selEnd = null;
+        renderSlots();
+      })
+      .catch((err) => alert("Eroare la salvare: " + err.message));
   }
 
   function renderAdminBookings() {
@@ -284,3 +333,38 @@
     const t = document.getElementById("volTable"); t.innerHTML = "";
     volunteers.sort((a,b) => a.name.localeCompare(b.name)).forEach(v => {
       t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="vol-check" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`;
+    });
+  }
+
+  function updateVolSelector() {
+    const s = document.getElementById("volSelector");
+    s.innerHTML = '<option value="">-- Alege Voluntar --</option>';
+    volunteers.forEach(v => s.innerHTML += `<option value="${v.phone}">${v.name}</option>`);
+  }
+
+  function importBulk() {
+    const val = document.getElementById("bulkInput").value;
+    val.split('\n').forEach(l => {
+      const p = l.split(','); if(p.length === 2) db.ref('volunteers').push({name: p[0].trim(), phone: p[1].trim()});
+    });
+    document.getElementById("bulkInput").value = "";
+  }
+
+  function toggleSelectAll(cls, chk) { 
+    const items = document.getElementsByClassName(cls); 
+    for(let i of items) i.checked = chk; 
+  }
+  
+  function bulkDelete(cls, ref) {
+    const sel = Array.from(document.getElementsByClassName(cls)).filter(i => i.checked).map(i => i.value);
+    if(sel.length === 0) return alert("Selectați elemente!");
+    if(confirm(`Ștergi definitiv ${sel.length} elemente?`)) {
+      sel.forEach(id => db.ref(ref+'/'+id).remove());
+    }
+  }
+
+  function changeMonth(o) { curDate.setMonth(curDate.getMonth() + o); renderCalendar(); renderAdminBookings(); }
+  renderCalendar();
+</script>
+</body>
+</html>
