@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Rezervări v3.9 - Final Securizat</title>
+  <title>SMURD Rezervări v3.9.1 - Final Securizat</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -60,7 +60,7 @@
 <header class="header">
   <div style="display:flex; align-items:center; gap:10px;">
     <span style="font-size: 1.5rem;">🚒</span>
-    <h1 style="font-size:1.2rem; margin:0;">SMURD Rezervări v3.9</h1>
+    <h1 style="font-size:1.2rem; margin:0;">SMURD Rezervări v3.9.1</h1>
   </div>
   <div style="display:flex; align-items:center; gap:12px;">
     <span id="userEmailDisplay" style="font-size: 0.8rem; font-weight: bold; color: var(--primary);"></span>
@@ -110,7 +110,6 @@
                 <th>Voluntar</th>
                 <th>Data</th>
                 <th>Interval</th>
-                <th>Telefon</th>
                 <th>Operat de</th>
               </tr>
             </thead>
@@ -136,7 +135,7 @@
 </div>
 
 <script>
-  // CONFIGURAȚIE FIREBASE (Înlocuiește cu datele tale)
+  // CONFIGURAȚIE FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -156,7 +155,6 @@
   const hours = [];
   for(let i=8; i<=22; i++) hours.push(`${String(i).padStart(2,'0')}:00`);
 
-  // MONITORIZARE LOGIN ADMIN
   auth.onAuthStateChanged(user => {
     isAdmin = !!user;
     currentAdminEmail = user ? user.email : "";
@@ -238,14 +236,11 @@
     const dayB = bookings.filter(b => new Date(b.date).toDateString() === selDate.toDateString());
     hours.forEach((h, i) => {
       const slot = document.createElement("div"); slot.className = "time-slot"; slot.innerText = h;
-      
-      // Adminul poate pune rezervări peste oricine
       if(dayB.some(b => h >= b.start && h < b.end) && !isAdmin) {
           slot.classList.add("taken");
       } else {
         if((selStart !== null && i === selStart) || (selEnd !== null && i === selEnd) || 
            (selStart !== null && selEnd !== null && i > Math.min(selStart, selEnd) && i < Math.max(selStart, selEnd))) slot.classList.add("active");
-        
         slot.onclick = () => {
           if(selStart === null || (selStart !== null && selEnd !== null)) { selStart = i; selEnd = null; }
           else { selEnd = i; }
@@ -259,8 +254,8 @@
   function processBooking() {
     let name, phone, operator;
     if(isAdmin) {
-        name = prompt("Introduceți Numele Voluntarului:");
-        phone = prompt("Introduceți Telefonul Voluntarului:");
+        name = prompt("Nume Voluntar:");
+        phone = prompt("Telefon Voluntar:");
         operator = currentAdminEmail;
     } else {
         phone = document.getElementById("phoneAuth").value;
@@ -294,7 +289,6 @@
         <td><b>${b.name}</b></td>
         <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
         <td>${b.start} - ${b.end}</td>
-        <td>${b.phone}</td>
         <td>${opBadge}</td>
       </tr>`;
     });
