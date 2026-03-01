@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.1.2.R</title>
+  <title>SMURD Programări v6.1.2.R - Seamless Shifts</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -81,7 +81,7 @@
 
 <header class="header no-print">
   <div style="display:flex; align-items:center; gap:10px;">
-    <span>🚒</span>
+    <span>🚑</span>
     <h1 style="font-size:1.1rem; margin:0;">Programări voluntari SMURD</h1>
   </div>
   <div>
@@ -252,12 +252,35 @@
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
+    
     hrs.forEach((h, i) => {
       const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
-      if(dBs.some(b => h >= b.start && h < b.end) && !isA) s.classList.add("taken");
-      else {
+      
+      // LOGICA NOUA: Un interval este "ocupat" doar daca ORA DE INCEPUT se afla STRICT in interiorul unei programari existente.
+      // Asta permite ca cineva sa inceapa la 12:00 daca altcineva termina la 12:00.
+      const isTaken = dBs.some(b => h >= b.start && h < b.end);
+
+      if(isTaken && !isA) {
+        s.classList.add("taken");
+      } else {
         if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
-        s.onclick = () => { if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); };
+        s.onclick = () => { 
+            if(selS===null || (selS!==null && selE!==null)) { 
+                selS=i; selE=null; 
+            } else { 
+                // Verificam sa nu sara peste un interval deja ocupat cand selecteaza capatul de final
+                const startIdx = Math.min(selS, i);
+                const endIdx = Math.max(selS, i);
+                let hasOverlap = false;
+                for(let check = startIdx; check < endIdx; check++) {
+                    if(dBs.some(b => hrs[check] >= b.start && hrs[check] < b.end) && !isA) hasOverlap = true;
+                }
+                if(hasOverlap) return alert("Intervalul selectat se suprapune cu o programare existentă!");
+                selE=i; 
+            } 
+            rSlt(); 
+            document.getElementById("cBtn").disabled = (selS===null || selE===null); 
+        };
       }
       g.appendChild(s);
     });
@@ -277,7 +300,7 @@
     document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
     
-    if(isA) lk(false); // DEBLOCARE AUTOMATĂ PENTRU ADMIN
+    if(isA) lk(false); 
     rCal();
   });
 
@@ -291,6 +314,7 @@
   db.ref('bookings').on('value', s => {
     bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
     rCal(); rBTab();
+    if(selD) rSlt();
   });
 
   function saveB() {
@@ -304,7 +328,11 @@
       if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limita 2/lună!"); 
       n = v.name; uT = "Voluntar"; 
     }
-    db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[startIdx], end: hrs[endIdx+1] || "22:00", auditUser: uT, auditTime: ts })
+    
+    // Ora de final este ora de start a slotului imediat urmator (sau 22:00 daca e ultimul slot)
+    const endTime = hrs[endIdx + 1] || "22:00";
+
+    db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[startIdx], end: endTime, auditUser: uT, auditTime: ts })
       .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
   }
 
@@ -354,7 +382,7 @@
   }
 
   function vPh() { 
-    if(isA) return; // DACĂ E ADMIN, NU MAI VERIFICĂM TELEFONUL PENTRU BLOCARE
+    if(isA) return; 
     if(isM) { lk(true); return; }
     const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); 
     if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ " + v.name; } 
@@ -363,7 +391,7 @@
 
   function lk(b) { 
     const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); 
-    if(isA) b = false; // FORȚARE DEBLOCARE DACĂ ESTE ADMIN
+    if(isA) b = false; 
     b ? (cb.classList.add("locked-overlay"), tb.classList.add("locked-overlay")) : (cb.classList.remove("locked-overlay"), tb.classList.remove("locked-overlay")); 
   }
   
@@ -380,7 +408,7 @@
   function rVol() { 
     const t = document.getElementById("vTab"), sVal = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = ""; 
     vols.filter(v => v.name.toLowerCase().includes(sVal) || v.phone.includes(sVal))
-        .forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); 
+        .forEach(v => t.innerHTML += `<tr><td><input type=\"checkbox\" class=\"v-ck\" value=\"${v.id}\"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); 
   }
 
   function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
