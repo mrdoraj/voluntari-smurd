@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.1.2 - Audit Logs</title>
+  <title>SMURD Programări v6.1.2.R - Print Colors Fixed</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -55,11 +55,16 @@
       .no-print { display: none !important; }
       #printView { display: block !important; width: 100%; }
       .print-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 2px solid #000; border-left: 2px solid #000; }
-      .print-cell { border-right: 2px solid #000; border-bottom: 2px solid #000; min-height: 120px; padding: 5px; vertical-align: top; }
+      .print-cell { border-right: 2px solid #000; border-bottom: 2px solid #000; min-height: 120px; padding: 5px; vertical-align: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      
+      /* CULORI SOLICITATE PENTRU PRINT */
+      .print-day-full { background-color: #fee2e2 !important; } /* ROSU: Acoperit total */
+      .print-day-partial { background-color: #dbeafe !important; } /* ALBASTRU: Acoperit partial */
+
       .print-day-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; background: #f0f0f0; border-left: 2px solid #000; border-top: 2px solid #000; }
       .print-day-header div { border-right: 2px solid #000; padding: 5px; }
       .day-num { font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: block; }
-      .b-item { font-size: 0.75rem; border-bottom: 1px dotted #ccc; padding: 2px 0; }
+      .b-item { font-size: 0.75rem; border-bottom: 1px dotted #ccc; padding: 2px 0; color: black; }
     }
   </style>
 </head>
@@ -79,7 +84,7 @@
 
 <header class="header no-print">
   <div style="display:flex; align-items:center; gap:10px;">
-    <span>🚒</span>
+    <span>🚑</span>
     <h1 style="font-size:1.1rem; margin:0;">Programări voluntari SMURD</h1>
   </div>
   <div>
@@ -204,7 +209,6 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
-  // LOGICĂ AUTENTIFICARE
   function openAuth() { document.getElementById("loginModal").style.display = "flex"; }
   function closeAuth() { document.getElementById("loginModal").style.display = "none"; }
   function doAuth() {
@@ -212,7 +216,6 @@
     auth.signInWithEmailAndPassword(e, p).then(() => closeAuth()).catch(err => alert("Eroare: " + err.message));
   }
 
-  // CĂUTARE PROGRAMĂRI
   function searchB() {
     const p = document.getElementById("sPhone").value.trim();
     const resDiv = document.getElementById("searchRes");
@@ -224,7 +227,7 @@
     resDiv.innerHTML = h + "</ul>";
   }
 
-  // PRINT VIZUAL
+  // --- FUNCTIA PREP PRINT ACTUALIZATA CU LOGICA DE CULORI SOLICITATA ---
   function prepPrint() {
     const pGrid = document.getElementById("pGrid"); pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
@@ -232,17 +235,26 @@
     const firstDay = new Date(y, m, 1).getDay(), lastDate = new Date(y, m + 1, 0).getDate();
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
     for(let i=0; i<offset; i++) pGrid.innerHTML += '<div class="print-cell"></div>';
+    
     for(let d=1; d<=lastDate; d++) {
-        const dStr = new Date(y, m, d).toDateString();
-        const dayBks = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
-        let html = `<div class="print-cell"><span class="day-num">${d}</span>`;
+        const dObj = new Date(y, m, d);
+        const dayBks = bks.filter(b => new Date(b.date).toDateString() === dObj.toDateString()).sort((a,b)=>a.start.localeCompare(b.start));
+        
+        // Logica culori print: Rosu daca sunt >= 4 (acoperit total), Albastru daca sunt > 0 (partial)
+        let colorClass = "";
+        if(dayBks.length >= 4) {
+            colorClass = "print-day-full";
+        } else if(dayBks.length > 0) {
+            colorClass = "print-day-partial";
+        }
+        
+        let html = `<div class="print-cell ${colorClass}"><span class="day-num">${d}</span>`;
         dayBks.forEach(b => { html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`; });
         pGrid.innerHTML += html + `</div>`;
     }
     window.print();
   }
 
-  // GESTIUNE ORARE
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
@@ -257,7 +269,6 @@
     });
   }
 
-  // FIREBASE EVENTS
   db.ref('settings/maintenance').on('value', s => {
     isM = s.val() === true;
     document.getElementById("maintBar").style.display = isM ? "block" : "none";
@@ -271,6 +282,7 @@
     document.getElementById("uAuth").style.display = isA ? "none" : "block";
     document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
+    if(isA) lk(false); else vPh();
     rCal();
   });
 
@@ -286,7 +298,6 @@
     rCal(); rBTab();
   });
 
-  // SALVARE DATE
   function saveB() {
     let n, p, uT, ts = new Date().toLocaleString('ro-RO');
     const startIdx = Math.min(selS, selE), endIdx = Math.max(selS, selE);
@@ -302,36 +313,21 @@
       .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
   }
 
-  // FUNCȚIE MODIFICATĂ: ȘTERGERE CU AUDIT LOG (v6.1.2)
   async function bDel(c, r) { 
     const selectedIds = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value);
     if(selectedIds.length === 0) return;
-    
     if(confirm(`Sigur ștergi ${selectedIds.length} elemente? Această acțiune va fi jurnalizată.`)) {
       const adminEmail = auth.currentUser ? auth.currentUser.email : "Unknown Admin";
       const timestamp = new Date().toLocaleString('ro-RO');
-
       for(let id of selectedIds) {
         try {
-          // 1. Preluăm datele înainte de ștergere
           const snapshot = await db.ref(r + '/' + id).once('value');
           const oldData = snapshot.val();
-
           if(oldData) {
-            // 2. Salvăm în log-ul de ștergeri
-            await db.ref('logs/deletions').push({
-              deletedBy: adminEmail,
-              deletedAt: timestamp,
-              type: r, // 'bookings' sau 'volunteers'
-              originalData: oldData
-            });
-
-            // 3. Ștergem datele originale
+            await db.ref('logs/deletions').push({ deletedBy: adminEmail, deletedAt: timestamp, type: r, originalData: oldData });
             await db.ref(r + '/' + id).remove();
           }
-        } catch(e) {
-          console.error("Eroare la ștergere ID " + id, e);
-        }
+        } catch(e) { console.error("Eroare la ștergere ID " + id, e); }
       }
       alert("Elemente șterse și salvate în log!");
     }
