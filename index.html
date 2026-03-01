@@ -52,6 +52,9 @@
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
 
+    /* MODAL LOGIN */
+    #loginModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+
     /* STILURI PRINT CALENDAR VIZUAL */
     #printView { display: none; }
     @media print {
@@ -65,10 +68,25 @@
       .print-day-header div { border-right: 2px solid #000; padding: 5px; }
       .day-num { font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: block; }
       .b-item { font-size: 0.75rem; border-bottom: 1px dotted #ccc; padding: 2px 0; }
+      /* Culori solicitate */
+      .status-partial { background-color: #e0f2fe !important; color: #0369a1 !important; } /* Albastru deschis */
+      .status-full { background-color: #fee2e2 !important; color: #b91c1c !important; }    /* Rosu deschis */
     }
   </style>
 </head>
 <body>
+
+<div id="loginModal">
+  <div class="card" style="width:300px;">
+    <h3>🔓 Autentificare Admin</h3>
+    <input type="email" id="admEmail" placeholder="Email" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc;">
+    <input type="password" id="admPass" placeholder="Parolă" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc;">
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="doAuth()">Login</button>
+      <button class="btn btn-outline" onclick="closeAuth()">Anulează</button>
+    </div>
+  </div>
+</div>
 
 <header class="header no-print">
   <div style="display:flex; align-items:center; gap:10px;">
@@ -77,7 +95,7 @@
   </div>
   <div>
     <span id="admName" style="font-weight:bold; color:var(--primary); margin-right:10px;"></span>
-    <button class="btn btn-primary" id="loginBtn" onclick="admIn()">🔓 Login</button>
+    <button class="btn btn-primary" id="loginBtn" onclick="openAuth()">🔓 Login</button>
     <button class="btn btn-danger" id="logoutBtn" style="display:none;" onclick="admOut()">🔒 Ieșire</button>
   </div>
 </header>
@@ -136,11 +154,11 @@
         <h3>📋 Lista Programări (Editare)</h3>
         <div style="overflow-x:auto;">
           <table>
-            <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Audit</th></tr></thead>
+            <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Creat de</th></tr></thead>
             <tbody id="bTab"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selectate</button>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selecție</button>
       </div>
 
       <div class="card">
@@ -185,7 +203,13 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
-  // --- FUNCTIA DE PRINT CALENDAR (NOUA) ---
+  function openAuth() { document.getElementById("loginModal").style.display = "flex"; }
+  function closeAuth() { document.getElementById("loginModal").style.display = "none"; }
+  function doAuth() {
+    const e = document.getElementById("admEmail").value, p = document.getElementById("admPass").value;
+    auth.signInWithEmailAndPassword(e, p).then(() => closeAuth()).catch(err => alert("Eroare: " + err.message));
+  }
+
   function prepPrint() {
     const pGrid = document.getElementById("pGrid");
     pGrid.innerHTML = "";
@@ -201,7 +225,20 @@
     for(let d=1; d<=lastDate; d++) {
         const dStr = new Date(y, m, d).toDateString();
         const dayBks = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
-        let html = `<div class="print-cell"><span class="day-num">${d}</span>`;
+        
+        // Calcul acoperire: daca avem peste 12 ore ocupate, consideram rosu (full)
+        let totalHours = 0;
+        dayBks.forEach(b => {
+            const s = parseInt(b.start), e = parseInt(b.end);
+            totalHours += (e - s);
+        });
+
+        let statusClass = "";
+        if(dayBks.length > 0) {
+            statusClass = totalHours >= 12 ? "status-full" : "status-partial";
+        }
+
+        let html = `<div class="print-cell ${statusClass}"><span class="day-num">${d}</span>`;
         dayBks.forEach(b => {
             html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`;
         });
@@ -211,7 +248,6 @@
     window.print();
   }
 
-  // --- LOGICA REZOLVARE SUPRAPUNERE ---
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
@@ -231,7 +267,6 @@
     });
   }
 
-  // --- FIREBASE SYNC & AUTH ---
   db.ref('settings/maintenance').on('value', s => {
     isM = s.val() === true;
     document.getElementById("maintBar").style.display = isM ? "block" : "none";
@@ -263,7 +298,6 @@
     rCal(); rBTab();
   });
 
-  // --- ACTIUNI ---
   function saveB() {
     let n, p, uT, ts = new Date().toLocaleString('ro-RO');
     const startIdx = Math.min(selS, selE), endIdx = Math.max(selS, selE);
@@ -282,7 +316,7 @@
   function rBTab() {
     const t = document.getElementById("bTab"); t.innerHTML = "";
     bks.filter(b => new Date(b.date).getMonth() === curD.getMonth()).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(b => {
-      t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="b-ck" value="${b.id}"></td><td><b>${b.name}</b></td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td><small>${b.auditUser}</small></td></tr>`;
+      t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="b-ck" value="${b.id}"></td><td><b>${b.name}</b></td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td><small>${b.auditTime}<br>${b.auditUser}</small></td></tr>`;
     });
   }
 
@@ -308,7 +342,6 @@
   function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); }
   function tglM(v) { db.ref('settings/maintenance').set(v); }
   function checkLimit() { if(!isA && selD) { const p = document.getElementById("pAuth").value.trim(); const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth()).length; document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Limită 2/lună atinsă!" : ""; } }
-  function admIn() { const e = prompt("Email:"), p = prompt("Parola:"); if(e && p) auth.signInWithEmailAndPassword(e,p).catch(err => alert(err.message)); }
   function admOut() { auth.signOut(); }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
   function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Ștergi permanent?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
