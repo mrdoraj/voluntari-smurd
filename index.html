@@ -271,8 +271,16 @@
     document.getElementById("uAuth").style.display = isA ? "none" : "block";
     document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
+    
+    // LINIA CORECTATĂ: Dacă e admin, deblochează mereu interfața
+    if (isA) {
+        lk(false); 
+    } else {
+        vPh(); // Verifică telefonul dacă e voluntar
+    }
+    
     rCal();
-  });
+});
 
   db.ref('volunteers').on('value', s => {
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
@@ -359,7 +367,21 @@
   }
 
   function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ " + v.name; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; } }
-  function lk(b) { const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); b ? (cb.classList.add("locked-overlay"), tb.classList.add("locked-overlay")) : (cb.classList.remove("locked-overlay"), tb.classList.remove("locked-overlay")); }
+  function lk(b) { 
+    // Dacă utilizatorul este Admin, forțăm b să fie mereu false (interfață deschisă)
+    if (isA) b = false; 
+
+    const cb = document.getElementById("cBox");
+    const tb = document.getElementById("tBox");
+    
+    if (b) {
+        cb.classList.add("locked-overlay");
+        tb.classList.add("locked-overlay");
+    } else {
+        cb.classList.remove("locked-overlay");
+        tb.classList.remove("locked-overlay");
+    }
+}
   
   function chM(o) { 
     const now = new Date(), target = new Date(curD.getFullYear(), curD.getMonth() + o, 1);
@@ -385,3 +407,4 @@
 </script>
 </body>
 </html>
+
