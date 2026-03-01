@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.2.6 - FINAL + INTEROGARE</title>
+  <title>SMURD Programări v6.2.7 - ADMIN OVERLAP OK</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -26,7 +26,6 @@
     .btn-danger { background: var(--danger); color: white; }
     .btn-outline { background: transparent; border: 1px solid var(--gray-200); color: var(--text); }
     
-    /* CALENDAR STATES */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
     .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .cal-day.selected { border: 3px solid var(--primary) !important; transform: scale(0.95); }
@@ -52,7 +51,6 @@
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
 
-    /* STYLE PRINT CALENDAR GRID */
     #printArea { display: none; font-family: sans-serif; color: black; }
     @media print {
       .no-print { display: none !important; }
@@ -68,7 +66,7 @@
 <body>
 
 <header class="header no-print">
-  <div style="font-weight:bold; font-size:1.2rem;">🚑 SMURD Programări v6.2.6</div>
+  <div style="font-weight:bold; font-size:1.2rem;">🚑 Programări voluntari SMURD</div>
   <div id="admStatus">
     <button class="btn btn-primary" onclick="openLogin()">🔓 Login Admin</button>
   </div>
@@ -92,7 +90,7 @@
     
     <div class="card" id="uAuth">
       <h3>🔑 Identificare</h3>
-      <input type="text" id="pAuth" placeholder="Introduceți numărul de telefon..." oninput="vPh()">
+      <input type="text" id="pAuth" placeholder="Introduceți datele de identificare.." oninput="vPh()">
       <div id="authMsg" style="margin-top:10px; font-weight:bold;"></div>
     </div>
 
@@ -255,20 +253,27 @@
     hrs.forEach((h, i) => {
       const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
       const isTaken = dBs.some(b => h >= b.start && h < b.end);
-      if(isTaken && !isA) { s.classList.add("taken"); }
-      else {
-        if(isTaken && isA) s.classList.add("overlap-admin");
-        if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
-        s.onclick = () => {
+      
+      // Dacă e ocupat, punem clasa de vizualizare 'taken'
+      if(isTaken) { 
+          if(isA) s.classList.add("overlap-admin"); // Admin vede bordura galbena
+          else s.classList.add("taken"); // User vede rosu
+      }
+
+      if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
+      
+      s.onclick = () => {
+          if(isTaken && !isA) return; // Blocăm utilizatorul, dar lăsăm adminul
+          
           if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; }
           else {
             const min = Math.min(selS, i), max = Math.max(selS, i);
+            // Validarea suprapunerii: oprim utilizatorul, trecem adminul
             if(dBs.some(b => hrs.indexOf(b.start) < max && (b.end==="22:00"?22:hrs.indexOf(b.end)) > min) && !isA) return alert("Suprapunere detectată!");
             selE=i;
           }
           rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null);
-        };
-      }
+      };
       g.appendChild(s);
     });
   }
@@ -309,7 +314,6 @@
     window.print();
   }
 
-  // --- FUNCTIA DE INTEROGARE PROGRAMARI ---
   function searchMyB(p) {
     const today = new Date().setHours(0,0,0,0);
     const my = bks.filter(b => b.phone === p && new Date(b.date) >= today).sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -323,11 +327,7 @@
   function vPh() {
     if(isA) return; if(isM) return lk(true);
     const p = document.getElementById("pAuth").value.trim(), vol = vols.find(u => u.phone === p);
-    if(vol) { 
-        lk(false); 
-        document.getElementById("authMsg").innerHTML = "✅ Bun venit, " + vol.name;
-        searchMyB(p); // Interogare automata
-    }
+    if(vol) { lk(false); document.getElementById("authMsg").innerHTML = "✅ Bun venit, " + vol.name; searchMyB(p); }
     else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Număr neînregistrat!"; }
   }
 
