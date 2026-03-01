@@ -63,11 +63,13 @@
 
 <div id="loginModal">
   <div class="card" style="width:300px;">
-    <h3>🔓 Admin Login</h3>
-    <input type="email" id="admEmail" placeholder="Email" style="width:100%; padding:10px; margin-bottom:10px;">
-    <input type="password" id="admPass" placeholder="Parolă" style="width:100%; padding:10px; margin-bottom:10px;">
-    <button class="btn btn-primary" onclick="doAuth()">Login</button>
-    <button class="btn btn-outline" onclick="closeAuth()">X</button>
+    <h3>🔓 Autentificare Admin</h3>
+    <input type="email" id="admEmail" placeholder="Email" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc;">
+    <input type="password" id="admPass" placeholder="Parolă" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc;">
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="doAuth()">Login</button>
+      <button class="btn btn-outline" onclick="closeAuth()">Anulează</button>
+    </div>
   </div>
 </div>
 
@@ -303,3 +305,4 @@
 </script>
 </body>
 </html>
+
