@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v5.7 - Calendar Print</title>
+  <title>SMURD Programări v5.7</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -26,6 +26,13 @@
     .btn-success { background: var(--success); color: white; }
     .btn-outline { background: transparent; border: 1px solid var(--gray-200); color: var(--text); }
     
+    .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--danger); }
+    input:checked + .slider:before { transform: translateX(24px); }
+
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
     .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .cal-day.selected { background: var(--primary) !important; color: white !important; }
@@ -39,20 +46,25 @@
     .time-slot.taken { background: #fee2e2; color: #991b1b; cursor: not-allowed; border-color: #fca5a5; }
     
     .locked-overlay { opacity: 0.4; pointer-events: none !important; filter: grayscale(1); }
+    #maintBar { display: none; background: var(--warning); color: white; text-align: center; padding: 15px; font-weight: bold; margin-bottom: 15px; border-radius: 8px; }
     
-    /* STILURI PRINT CALENDAR */
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
+    th { background: var(--gray-100); }
+
+    /* STILURI PRINT CALENDAR VIZUAL */
     #printView { display: none; }
     @media print {
       @page { size: landscape; margin: 1cm; }
       body { background: white; }
       .no-print { display: none !important; }
-      #printView { display: block !important; }
-      .print-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #000; border-left: 1px solid #000; }
-      .print-cell { border-right: 1px solid #000; border-bottom: 1px solid #000; min-height: 100px; padding: 4px; font-size: 0.7rem; }
-      .print-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; background: #eee; border-left: 1px solid #000; border-top: 1px solid #000; }
-      .print-header div { border-right: 1px solid #000; padding: 5px; }
-      .day-num { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: block; }
-      .b-item { border-bottom: 1px solid #eee; padding: 1px 0; line-height: 1.2; }
+      #printView { display: block !important; width: 100%; }
+      .print-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 2px solid #000; border-left: 2px solid #000; }
+      .print-cell { border-right: 2px solid #000; border-bottom: 2px solid #000; min-height: 120px; padding: 5px; vertical-align: top; }
+      .print-day-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; background: #f0f0f0; border-left: 2px solid #000; border-top: 2px solid #000; }
+      .print-day-header div { border-right: 2px solid #000; padding: 5px; }
+      .day-num { font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: block; }
+      .b-item { font-size: 0.75rem; border-bottom: 1px dotted #ccc; padding: 2px 0; }
     }
   </style>
 </head>
@@ -72,7 +84,7 @@
 
 <div class="container no-print">
   <aside>
-    <div id="maintBar" style="display:none; background:var(--warning); color:white; text-align:center; padding:10px; border-radius:8px; margin-bottom:10px;">⚠️ MENTENANȚĂ</div>
+    <div id="maintBar">⚠️ MOD MENTENANȚĂ ACTIV</div>
     <div class="card" id="uAuth">
       <h3>🔑 Identificare</h3>
       <input type="text" id="pAuth" placeholder="Telefon voluntar..." oninput="vPh()" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc;">
@@ -85,7 +97,7 @@
     <div class="card locked-overlay" id="tBox">
       <h3>🕒 Interval Orar</h3>
       <div class="time-grid" id="tGrid"></div>
-      <p id="limitMsg" style="font-size: 0.8rem; color: var(--danger); font-weight: bold;"></p>
+      <p id="limitMsg" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; margin-top: 10px;"></p>
       <button id="cBtn" class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="saveB()" disabled>Confirmă Programarea</button>
     </div>
   </aside>
@@ -94,37 +106,68 @@
     <div class="card locked-overlay" id="cBox">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 id="mLab" style="margin:0;">Calendar</h3>
-        <div><button class="btn btn-outline" onclick="chM(-1)">←</button> <button class="btn btn-outline" onclick="chM(1)">→</button></div>
+        <div style="display: flex; gap: 5px;">
+          <button class="btn btn-outline" onclick="chM(-1)">←</button>
+          <button class="btn btn-outline" onclick="chM(1)">→</button>
+        </div>
       </div>
       <div class="calendar-grid" id="cGrid"></div>
     </div>
 
     <div id="admP" style="display:none;">
-        <div class="card" style="background: #f0f9ff;">
-            <h3>📋 Gestiune & Print</h3>
-            <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Calendar Vizual</button>
+      <div class="card" style="border: 2px solid var(--warning); background: #fffcf0;">
+        <h3 style="color: #92400e; margin: 0 0 10px 0;">⚙️ Mentenanță</h3>
+        <div style="display:flex; align-items:center; gap:15px;">
+          <label class="switch"><input type="checkbox" id="mTog" onchange="tglM(this.checked)"><span class="slider"></span></label>
+          <span style="font-weight: bold;">Blochează Acces Voluntari</span>
         </div>
-        <div class="card">
-            <table style="width:100%; border-collapse: collapse; font-size:0.8rem;">
-                <thead><tr style="background:#eee;"><th><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th></tr></thead>
-                <tbody id="bTab"></tbody>
-            </table>
-            <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selectate</button>
+      </div>
+
+      <div class="card" style="background: #f0f9ff; border: 1px solid #bae6fd;">
+        <h3>💾 Gestiune & Print</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-success" onclick="prepPrint()">🖨️ Print Calendar Vizual</button>
+          <button class="btn btn-primary" onclick="exportData()">📥 Export JSON</button>
+          <label class="btn btn-success" style="cursor: pointer;">📤 Import JSON <input type="file" accept=".json" style="display: none;" onchange="importData(event)"></label>
         </div>
+      </div>
+
+      <div class="card">
+        <h3>📋 Lista Programări (Editare)</h3>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Audit</th></tr></thead>
+            <tbody id="bTab"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selectate</button>
+      </div>
+
+      <div class="card">
+        <h3>👥 Whitelist Voluntari</h3>
+        <textarea id="bIn" rows="2" placeholder="Nume, Telefon (ex: Ion Popescu, 0722...)" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px;"></textarea>
+        <button class="btn btn-primary" style="width:100%;" onclick="impV()">Importă Voluntari</button>
+        <div style="max-height: 250px; overflow-y: auto; margin-top:15px; border: 1px solid #eee;">
+          <table>
+            <thead><tr><th><input type="checkbox" onclick="tglA('v-ck', this.checked)"></th><th>Nume</th><th>Telefon</th></tr></thead>
+            <tbody id="vTab"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('v-ck', 'volunteers')">Șterge Voluntari Selectați</button>
+      </div>
     </div>
   </main>
 </div>
 
 <div id="printView">
-    <h2 id="pTitle" style="text-align:center; margin-bottom:10px;">Programări voluntari</h2>
-    <div class="print-header">
+    <h1 id="pTitle" style="text-align:center;">Programări voluntari SMURD</h1>
+    <div class="print-day-header">
         <div>Luni</div><div>Marți</div><div>Miercuri</div><div>Joi</div><div>Vineri</div><div>Sâmbătă</div><div>Duminică</div>
     </div>
     <div class="print-grid" id="pGrid"></div>
 </div>
 
 <script>
-  // Configurația Firebase (neschimbată)
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -134,18 +177,20 @@
     messagingSenderId: "694856921809",
     appId: "1:694856921809:web:de6e004fd6a9cd5f4c0bf0"
   };
+
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database(), auth = firebase.auth();
 
-  let curD = new Date(), selD = null, selS = null, selE = null, bks = [], vols = [], isA = false, isM = false;
+  let curD = new Date(), selD = null, selS = null, selE = null;
+  let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
-  // --- FUNCȚIA DE PRINT MODERNIZATĂ ---
+  // --- FUNCTIA DE PRINT CALENDAR (NOUA) ---
   function prepPrint() {
     const pGrid = document.getElementById("pGrid");
     pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
-    document.getElementById("pTitle").innerText = "Programări voluntari SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
+    document.getElementById("pTitle").innerText = "PROGRAMĂRI VOLUNTARI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
 
     const firstDay = new Date(y, m, 1).getDay();
     const lastDate = new Date(y, m + 1, 0).getDate();
@@ -158,7 +203,7 @@
         const dayBks = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
         let html = `<div class="print-cell"><span class="day-num">${d}</span>`;
         dayBks.forEach(b => {
-            html += `<div class="b-item"><b>${b.start}-${b.end}</b><br>${b.name}</div>`;
+            html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`;
         });
         html += `</div>`;
         pGrid.innerHTML += html;
@@ -166,76 +211,112 @@
     window.print();
   }
 
-  // --- LOGICA DE UI (Adaptată din v5.6) ---
+  // --- LOGICA REZOLVARE SUPRAPUNERE ---
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
     hrs.forEach((h, i) => {
       const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
       const isTaken = dBs.some(b => h >= b.start && h < b.end);
-      if(isTaken && !isA) s.classList.add("taken");
+      if(isTaken && !isA) { s.classList.add("taken"); } 
       else {
-        if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
-        s.onclick = () => { if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); };
+        const act = (selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE));
+        if(act) s.classList.add("active");
+        s.onclick = () => { 
+          if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } 
+          rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); 
+        };
       }
       g.appendChild(s);
     });
   }
 
-  function saveB() {
-    let n, p, uT, ts = new Date().toLocaleString('ro-RO'), sIdx = Math.min(selS, selE), eIdx = Math.max(selS, selE);
-    if(isA) { const s = document.getElementById("vSel"); p = s.value; n = s.options[s.selectedIndex].text; uT = `Admin (${auth.currentUser.email})`; }
-    else { p = document.getElementById("pAuth").value.trim(); const v = vols.find(u=>u.phone===p); n = v.name; uT = "Voluntar"; }
-    db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[sIdx], end: hrs[eIdx], auditUser: uT, auditTime: ts })
-      .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
-  }
+  // --- FIREBASE SYNC & AUTH ---
+  db.ref('settings/maintenance').on('value', s => {
+    isM = s.val() === true;
+    document.getElementById("maintBar").style.display = isM ? "block" : "none";
+    if(document.getElementById("mTog")) document.getElementById("mTog").checked = isM;
+    if(!isA) { if(isM) lk(true); else vPh(); }
+  });
 
-  // Initializari si Listeners (Simplificate)
-  db.ref('volunteers').on('value', s => { 
+  auth.onAuthStateChanged(u => {
+    isA = !!u;
+    document.getElementById("admName").innerText = u ? u.email.split('@')[0].toUpperCase() : "";
+    document.getElementById("admP").style.display = isA ? "block" : "none";
+    document.getElementById("admSel").style.display = isA ? "block" : "none";
+    document.getElementById("uAuth").style.display = isA ? "none" : "block";
+    document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
+    document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
+    if(isA) lk(false); else if(isM) lk(true);
+    rCal();
+  });
+
+  db.ref('volunteers').on('value', s => {
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
     const sl = document.getElementById("vSel"); sl.innerHTML = '<option value="">-- Alege --</option>';
     vols.sort((a,b)=>a.name.localeCompare(b.name)).forEach(v => sl.innerHTML += `<option value="${v.phone}">${v.name}</option>`);
-  });
-  db.ref('bookings').on('value', s => { 
-    bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; 
-    rCal(); rBTab(); 
-  });
-  auth.onAuthStateChanged(u => { 
-    isA = !!u; document.getElementById("admP").style.display = isA ? "block" : "none"; 
-    document.getElementById("admSel").style.display = isA ? "block" : "none";
-    document.getElementById("uAuth").style.display = isA ? "none" : "block";
-    if(isA) lk(false);
+    rVol();
   });
 
-  function rCal() {
-    const g = document.getElementById("cGrid"); g.innerHTML = "";
-    document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'});
-    const y = curD.getFullYear(), m = curD.getMonth(), last = new Date(y, m+1, 0).getDate();
-    for(let i=1; i<=last; i++) {
-      const d = new Date(y, m, i), btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
-      const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
-      if(d < new Date().setHours(0,0,0,0) && !isA) btn.classList.add("day-past");
-      else { btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free"); btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); }; }
-      if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
-      g.appendChild(btn);
+  db.ref('bookings').on('value', s => {
+    bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
+    rCal(); rBTab();
+  });
+
+  // --- ACTIUNI ---
+  function saveB() {
+    let n, p, uT, ts = new Date().toLocaleString('ro-RO');
+    const startIdx = Math.min(selS, selE), endIdx = Math.max(selS, selE);
+    if(isA) { 
+      const s = document.getElementById("vSel"); if(!s.value) return alert("Alege!");
+      p = s.value; n = s.options[s.selectedIndex].text; uT = `Admin (${auth.currentUser.email})`; 
+    } else { 
+      p = document.getElementById("pAuth").value.trim(); const v = vols.find(u=>u.phone===p); 
+      if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limita 2/lună!"); 
+      n = v.name; uT = "Voluntar"; 
     }
+    db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[startIdx], end: hrs[endIdx], auditUser: uT, auditTime: ts })
+      .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
   }
 
   function rBTab() {
     const t = document.getElementById("bTab"); t.innerHTML = "";
     bks.filter(b => new Date(b.date).getMonth() === curD.getMonth()).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(b => {
-      t.innerHTML += `<tr><td><input type="checkbox" class="b-ck" value="${b.id}"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td></tr>`;
+      t.innerHTML += `<tr><td class="no-print"><input type="checkbox" class="b-ck" value="${b.id}"></td><td><b>${b.name}</b></td><td>${new Date(b.date).toLocaleDateString('ro-RO')}</td><td>${b.start}-${b.end}</td><td><small>${b.auditUser}</small></td></tr>`;
     });
   }
 
-  function vPh() { const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v) { lk(false); document.getElementById("authMsg").innerText = "✅ " + v.name; } else { lk(true); } }
-  function lk(b) { document.getElementById("cBox").className = b ? "card locked-overlay" : "card"; }
+  function rCal() {
+    const g = document.getElementById("cGrid"); g.innerHTML = "";
+    document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'});
+    const y = curD.getFullYear(), m = curD.getMonth(), last = new Date(y, m+1, 0).getDate();
+    const today = new Date();
+    const isAllowed = (y === today.getFullYear() && m === today.getMonth()) || (y === (today.getMonth() === 11 ? today.getFullYear()+1 : today.getFullYear()) && m === (today.getMonth() + 1) % 12);
+    for(let i=1; i<=last; i++) {
+      const d = new Date(y, m, i), btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
+      const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
+      if(d < new Date().setHours(0,0,0,0) && !isA) btn.classList.add("day-past");
+      else if (!isAllowed && !isA) btn.classList.add("day-locked");
+      else { btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free"); btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); checkLimit(); }; }
+      if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
+      g.appendChild(btn);
+    }
+  }
+
+  function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ " + v.name; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; } }
+  function lk(b) { const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); if(b) { cb.classList.add("locked-overlay"); tb.classList.add("locked-overlay"); } else { cb.classList.remove("locked-overlay"); tb.classList.remove("locked-overlay"); } }
   function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); }
-  function admIn() { const e = prompt("Email:"), p = prompt("Parola:"); if(e && p) auth.signInWithEmailAndPassword(e,p); }
+  function tglM(v) { db.ref('settings/maintenance').set(v); }
+  function checkLimit() { if(!isA && selD) { const p = document.getElementById("pAuth").value.trim(); const count = bks.filter(b => b.phone === p && new Date(b.date).getMonth() === selD.getMonth()).length; document.getElementById("limitMsg").innerText = count >= 2 ? "⚠️ Limită 2/lună atinsă!" : ""; } }
+  function admIn() { const e = prompt("Email:"), p = prompt("Parola:"); if(e && p) auth.signInWithEmailAndPassword(e,p).catch(err => alert(err.message)); }
   function admOut() { auth.signOut(); }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
-  function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(confirm("Ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
-  
+  function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Ștergi permanent?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
+  function rVol() { const t = document.getElementById("vTab"); t.innerHTML = ""; vols.forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); }
+  function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
+  function exportData() { db.ref().once('value', s => { const data = JSON.stringify(s.val(), null, 2), blob = new Blob([data], {type: 'application/json'}), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `backup_smurd_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }); }
+  function importData(e) { const f = e.target.files[0]; if(!f) return; if(!confirm("Suprascrii baza de date?")) return; const r = new FileReader(); r.onload = (e) => { try { const j = JSON.parse(e.target.result); db.ref().set(j).then(() => { alert("Restaurat!"); location.reload(); }); } catch(err) { alert("Eroare JSON!"); } }; r.readAsText(f); }
+
   rCal();
 </script>
 </body>
