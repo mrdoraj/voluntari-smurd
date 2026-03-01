@@ -227,29 +227,37 @@
     resDiv.innerHTML = h + "</ul>";
   }
 
-  // --- FUNCTIA PREP PRINT ACTUALIZATA CU LOGICA DE CULORI SOLICITATA ---
+// --- FUNCTIA PREP PRINT ACTUALIZATA (VERIFICARE ACOPERIRE TOTALA ORE) ---
   function prepPrint() {
     const pGrid = document.getElementById("pGrid"); pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
     document.getElementById("pTitle").innerText = "PROGRAMĂRI VOLUNTARI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
+    
     const firstDay = new Date(y, m, 1).getDay(), lastDate = new Date(y, m + 1, 0).getDate();
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
     for(let i=0; i<offset; i++) pGrid.innerHTML += '<div class="print-cell"></div>';
     
     for(let d=1; d<=lastDate; d++) {
         const dObj = new Date(y, m, d);
-        const dayBks = bks.filter(b => new Date(b.date).toDateString() === dObj.toDateString()).sort((a,b)=>a.start.localeCompare(b.start));
+        const dayBks = bks.filter(b => new Date(b.date).toDateString() === dObj.toDateString());
         
-        // Logica culori print: Rosu daca sunt >= 4 (acoperit total), Albastru daca sunt > 0 (partial)
         let colorClass = "";
-        if(dayBks.length >= 4) {
-            colorClass = "print-day-full";
-        } else if(dayBks.length > 0) {
-            colorClass = "print-day-partial";
+        if (dayBks.length > 0) {
+            // Verificăm dacă fiecare oră din intervalul 08:00 - 22:00 este acoperită
+            // (hrs conține intervalele de start: 08:00, 09:00 ... 21:00)
+            const isFullyCovered = hrs.every(h => dayBks.some(b => h >= b.start && h < b.end));
+            
+            if (isFullyCovered) {
+                colorClass = "print-day-full"; // ROSU (Ocupat complet 08-22)
+            } else {
+                colorClass = "print-day-partial"; // ALBASTRU (Exista programari, dar si goluri)
+            }
         }
         
         let html = `<div class="print-cell ${colorClass}"><span class="day-num">${d}</span>`;
-        dayBks.forEach(b => { html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`; });
+        dayBks.sort((a,b)=>a.start.localeCompare(b.start)).forEach(b => { 
+            html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`; 
+        });
         pGrid.innerHTML += html + `</div>`;
     }
     window.print();
@@ -381,3 +389,4 @@
 </script>
 </body>
 </html>
+
