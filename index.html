@@ -225,19 +225,17 @@
   }
 
   // PRINT VIZUAL
-    function prepPrint() {
+  function prepPrint() {
     const pGrid = document.getElementById("pGrid"); pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
-    document.getElementById("pTitle").innerText = "PROGRAMĂRI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
+    document.getElementById("pTitle").innerText = "PROGRAMĂRI VOLUNTARI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
     const firstDay = new Date(y, m, 1).getDay(), lastDate = new Date(y, m + 1, 0).getDate();
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
     for(let i=0; i<offset; i++) pGrid.innerHTML += '<div class="print-cell"></div>';
     for(let d=1; d<=lastDate; d++) {
         const dStr = new Date(y, m, d).toDateString();
         const dayBks = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
-        let totalHours = 0; dayBks.forEach(b => { totalHours += (parseInt(b.end) - parseInt(b.start)); });
-        let statusClass = dayBks.length > 0 ? (totalHours >= 12 ? "status-full" : "status-partial") : "";
-        let html = `<div class="print-cell ${statusClass}"><span class="day-num">${d}</span>`;
+        let html = `<div class="print-cell"><span class="day-num">${d}</span>`;
         dayBks.forEach(b => { html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`; });
         pGrid.innerHTML += html + `</div>`;
     }
@@ -387,4 +385,5 @@
 </script>
 </body>
 </html>
+
 
