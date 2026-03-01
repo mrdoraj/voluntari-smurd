@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.1</title>
+  <title>SMURD Programări v6.1.2</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -26,7 +26,6 @@
     .btn-success { background: var(--success); color: white; }
     .btn-outline { background: transparent; border: 1px solid var(--gray-200); color: var(--text); }
     
-    /* REPARAȚIE VIZUALĂ: Ascunde elementele de print în browser */
     #printView { display: none; } 
 
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
@@ -61,8 +60,6 @@
       .print-day-header div { border-right: 2px solid #000; padding: 5px; }
       .day-num { font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: block; }
       .b-item { font-size: 0.75rem; border-bottom: 1px dotted #ccc; padding: 2px 0; }
-      .status-partial { background-color: #e0f2fe !important; color: #0369a1 !important; }
-      .status-full { background-color: #fee2e2 !important; color: #b91c1c !important; }
     }
   </style>
 </head>
@@ -150,9 +147,9 @@
       </div>
 
       <div class="card">
-        <h3>📋 Lista Programări (Editare/Audit)</h3>
+        <h3>📋 Lista Programări (Audit)</h3>
         <table>
-          <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Audit (Creat de)</th></tr></thead>
+          <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Audit</th></tr></thead>
           <tbody id="bTab"></tbody>
         </table>
         <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Programările Selectate</button>
@@ -160,18 +157,14 @@
 
       <div class="card">
         <h3>👥 Gestiune Whitelist Voluntari</h3>
-        
         <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 1.2rem;">🔍</span>
-            <input type="text" id="vSearch" placeholder="Caută voluntar după nume sau telefon..." oninput="rVol()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+            <span>🔍</span>
+            <input type="text" id="vSearch" placeholder="Caută voluntar..." oninput="rVol()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
           </div>
         </div>
-
-        <p style="font-size:0.8rem; color:#666;">Format import: Nume, Telefon (unul pe linie)</p>
-        <textarea id="bIn" rows="3" placeholder="Ex: Ion Popescu, 0722123456" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px; border: 1px solid #ccc;"></textarea>
+        <textarea id="bIn" rows="3" placeholder="Nume, Telefon" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px; border: 1px solid #ccc;"></textarea>
         <button class="btn btn-primary" style="width:100%;" onclick="impV()">Importă în Whitelist</button>
-        
         <div style="max-height: 250px; overflow-y: auto; margin-top:15px; border: 1px solid #eee;">
           <table>
             <thead><tr><th><input type="checkbox" onclick="tglA('v-ck', this.checked)"></th><th>Nume</th><th>Telefon</th></tr></thead>
@@ -193,6 +186,7 @@
 </div>
 
 <script>
+  // CONFIGURARE FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -210,6 +204,7 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
+  // LOGICĂ AUTENTIFICARE
   function openAuth() { document.getElementById("loginModal").style.display = "flex"; }
   function closeAuth() { document.getElementById("loginModal").style.display = "none"; }
   function doAuth() {
@@ -217,60 +212,56 @@
     auth.signInWithEmailAndPassword(e, p).then(() => closeAuth()).catch(err => alert("Eroare: " + err.message));
   }
 
+  // CĂUTARE PROGRAMĂRI
   function searchB() {
     const p = document.getElementById("sPhone").value.trim();
     const resDiv = document.getElementById("searchRes");
     if(!p) return resDiv.innerHTML = "❌ Introdu un număr.";
     const my = bks.filter(b => b.phone === p).sort((a,b) => new Date(a.date) - new Date(b.date));
     if(my.length === 0) return resDiv.innerHTML = "Nu am găsit programări.";
-    let h = "<b>Programările tale:</b><br><ul style='padding-left:20px;'>";
+    let h = "<b>Programările tale:</b><br><ul>";
     my.forEach(b => { h += `<li>${new Date(b.date).toLocaleDateString('ro-RO')} | ${b.start}-${b.end}</li>`; });
     resDiv.innerHTML = h + "</ul>";
   }
 
+  // PRINT VIZUAL
   function prepPrint() {
-    const pGrid = document.getElementById("pGrid");
-    pGrid.innerHTML = "";
+    const pGrid = document.getElementById("pGrid"); pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
     document.getElementById("pTitle").innerText = "PROGRAMĂRI VOLUNTARI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
-    const firstDay = new Date(y, m, 1).getDay();
-    const lastDate = new Date(y, m + 1, 0).getDate();
+    const firstDay = new Date(y, m, 1).getDay(), lastDate = new Date(y, m + 1, 0).getDate();
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
     for(let i=0; i<offset; i++) pGrid.innerHTML += '<div class="print-cell"></div>';
     for(let d=1; d<=lastDate; d++) {
         const dStr = new Date(y, m, d).toDateString();
         const dayBks = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
-        let totalHours = 0;
-        dayBks.forEach(b => { totalHours += (parseInt(b.end) - parseInt(b.start)); });
-        let statusClass = dayBks.length > 0 ? (totalHours >= 12 ? "status-full" : "status-partial") : "";
-        let html = `<div class="print-cell ${statusClass}"><span class="day-num">${d}</span>`;
+        let html = `<div class="print-cell"><span class="day-num">${d}</span>`;
         dayBks.forEach(b => { html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`; });
         pGrid.innerHTML += html + `</div>`;
     }
     window.print();
   }
 
+  // GESTIUNE ORARE
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
     hrs.forEach((h, i) => {
       const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
-      const isTaken = dBs.some(b => h >= b.start && h < b.end);
-      if(isTaken && !isA) { s.classList.add("taken"); } 
+      if(dBs.some(b => h >= b.start && h < b.end) && !isA) s.classList.add("taken");
       else {
-        const act = (selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE));
-        if(act) s.classList.add("active");
+        if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
         s.onclick = () => { if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); };
       }
       g.appendChild(s);
     });
   }
 
+  // FIREBASE EVENTS
   db.ref('settings/maintenance').on('value', s => {
     isM = s.val() === true;
     document.getElementById("maintBar").style.display = isM ? "block" : "none";
-    if(document.getElementById("mTog")) document.getElementById("mTog").checked = isM;
-    if(!isA) { if(isM) lk(true); else vPh(); }
+    if(!isA) isM ? lk(true) : vPh();
   });
 
   auth.onAuthStateChanged(u => {
@@ -295,6 +286,7 @@
     rCal(); rBTab();
   });
 
+  // SALVARE DATE
   function saveB() {
     let n, p, uT, ts = new Date().toLocaleString('ro-RO');
     const startIdx = Math.min(selS, selE), endIdx = Math.max(selS, selE);
@@ -308,6 +300,41 @@
     }
     db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[startIdx], end: hrs[endIdx], auditUser: uT, auditTime: ts })
       .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
+  }
+
+  // FUNCȚIE MODIFICATĂ: ȘTERGERE CU AUDIT LOG (v6.1.2)
+  async function bDel(c, r) { 
+    const selectedIds = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value);
+    if(selectedIds.length === 0) return;
+    
+    if(confirm(`Sigur ștergi ${selectedIds.length} elemente? Această acțiune va fi jurnalizată.`)) {
+      const adminEmail = auth.currentUser ? auth.currentUser.email : "Unknown Admin";
+      const timestamp = new Date().toLocaleString('ro-RO');
+
+      for(let id of selectedIds) {
+        try {
+          // 1. Preluăm datele înainte de ștergere
+          const snapshot = await db.ref(r + '/' + id).once('value');
+          const oldData = snapshot.val();
+
+          if(oldData) {
+            // 2. Salvăm în log-ul de ștergeri
+            await db.ref('logs/deletions').push({
+              deletedBy: adminEmail,
+              deletedAt: timestamp,
+              type: r, // 'bookings' sau 'volunteers'
+              originalData: oldData
+            });
+
+            // 3. Ștergem datele originale
+            await db.ref(r + '/' + id).remove();
+          }
+        } catch(e) {
+          console.error("Eroare la ștergere ID " + id, e);
+        }
+      }
+      alert("Elemente șterse și salvate în log!");
+    }
   }
 
   function rBTab() {
@@ -332,19 +359,21 @@
   }
 
   function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ " + v.name; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; } }
-  function lk(b) { const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); if(b) { cb.classList.add("locked-overlay"); tb.classList.add("locked-overlay"); } else { cb.classList.remove("locked-overlay"); tb.classList.remove("locked-overlay"); } }
-  function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); }
+  function lk(b) { const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); b ? (cb.classList.add("locked-overlay"), tb.classList.add("locked-overlay")) : (cb.classList.remove("locked-overlay"), tb.classList.remove("locked-overlay")); }
+  
+  function chM(o) { 
+    const now = new Date(), target = new Date(curD.getFullYear(), curD.getMonth() + o, 1);
+    if(!isA && (target < new Date(now.getFullYear(), now.getMonth(), 1) || target > new Date(now.getFullYear(), now.getMonth() + 1, 1))) { alert("Limită: Luna curentă/următoare."); return; }
+    curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); 
+  }
+
   function tglM(v) { db.ref('settings/maintenance').set(v); }
   function admOut() { auth.signOut(); }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
-  function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Sigur ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
   
-  // MODIFICAT PENTRU SEARCH ÎN WHITELIST
   function rVol() { 
-    const t = document.getElementById("vTab"); 
-    const searchVal = document.getElementById("vSearch").value.toLowerCase();
-    t.innerHTML = ""; 
-    vols.filter(v => v.name.toLowerCase().includes(searchVal) || v.phone.includes(searchVal))
+    const t = document.getElementById("vTab"), sVal = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = ""; 
+    vols.filter(v => v.name.toLowerCase().includes(sVal) || v.phone.includes(sVal))
         .forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); 
   }
 
