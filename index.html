@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.2.2</title>
+  <title>SMURD Programări v6.2.3 - CONTROL CALENDAR & PRINT GRID</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -31,14 +31,12 @@
     .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .cal-day.selected { border: 3px solid var(--primary) !important; transform: scale(0.95); }
     
-    .day-available { background: #f0fdf4; color: #166534; border-color: #bbf7d0; } /* 0 programări */
-    .day-partial { background: #fef9c3; color: #854d0e; border-color: #fde047; }   /* 1-2 programări */
-    .day-full { background: #fee2e2; color: #991b1b; border-color: #fecaca; }      /* 3+ programări */
+    .day-available { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+    .day-partial { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+    .day-full { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
     .day-past { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); color: #64748b; }
 
-    /* MULTI-SELECT UI */
-    .multi-del-bar { display: none; justify-content: space-between; align-items: center; background: #fff1f2; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #fda4af; animation: slideIn 0.3s ease; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .multi-del-bar { display: none; justify-content: space-between; align-items: center; background: #fff1f2; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #fda4af; }
 
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
     .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: bold; }
@@ -52,18 +50,25 @@
     input, select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--gray-200); margin-bottom: 10px; box-sizing: border-box; }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
-    th { background: var(--gray-100); font-weight: 600; }
+    th { background: var(--gray-100); }
 
+    /* STYLE PRINT CALENDAR */
+    #printArea { display: none; font-family: sans-serif; color: black; }
     @media print {
       .no-print { display: none !important; }
-      #printArea { display: block !important; }
+      #printArea { display: block !important; width: 100%; }
+      .p-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #000; border-left: 1px solid #000; }
+      .p-cell { border-right: 1px solid #000; border-bottom: 1px solid #000; min-height: 120px; padding: 5px; font-size: 10px; }
+      .p-day-num { font-weight: bold; font-size: 14px; border-bottom: 1px solid #eee; display: block; margin-bottom: 4px; }
+      .p-header { display: grid; grid-template-columns: repeat(7, 1fr); font-weight: bold; text-align: center; background: #eee !important; border: 1px solid #000; }
+      .p-entry { margin-bottom: 2px; line-height: 1.1; }
     }
   </style>
 </head>
 <body>
 
 <header class="header no-print">
-  <div style="font-weight:bold; font-size:1.2rem;">🚑 Programări voluntari SMURD</div>
+  <div style="font-weight:bold; font-size:1.2rem;">🚑 SMURD v6.2.3</div>
   <div id="admStatus">
     <button class="btn btn-primary" onclick="openLogin()">🔓 Login Admin</button>
   </div>
@@ -84,18 +89,15 @@
 <div class="container no-print">
   <aside>
     <div id="maintBar">⚠️ SISTEM ÎN MENTENANȚĂ</div>
-
     <div class="card" id="uAuth">
       <h3>🔑 Identificare</h3>
-      <input type="text" id="pAuth" placeholder="Introduceți datele de identificare.." oninput="vPh()">
+      <input type="text" id="pAuth" placeholder="Introduceți numărul de telefon..." oninput="vPh()">
       <div id="authMsg" style="margin-top:10px; font-weight:bold;"></div>
     </div>
-
     <div class="card" id="admSel" style="display:none;">
       <h3>👤 Selectează Voluntar</h3>
       <select id="vSel"></select>
     </div>
-
     <div class="card locked-overlay" id="tBox">
       <h3>🕒 Selectează Interval</h3>
       <div class="time-grid" id="tGrid"></div>
@@ -118,11 +120,9 @@
     <div id="admP" style="display:none;">
       <div class="card" style="border: 2px solid var(--warning);">
         <h3>⚙️ Panou Control Administrator</h3>
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <label><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Activează Mentenanță</label>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap: wrap;">
-            <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
+        <label><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Activează Mentenanță</label>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna (Calendar)</button>
             <button class="btn btn-outline" onclick="exportData()">📥 Backup JSON</button>
             <button class="btn btn-danger" onclick="admOut()">🔒 Ieșire</button>
         </div>
@@ -130,66 +130,55 @@
 
       <div class="card">
         <h3>📋 Gestiune Voluntari</h3>
-        <textarea id="bIn" placeholder="Nume Voluntar, Telefon (ex: Popescu Ion, 0722...)"></textarea>
+        <textarea id="bIn" placeholder="Nume, Telefon (ex: Popescu Ion, 0722...)"></textarea>
         <button class="btn btn-primary" onclick="impV()">Adaugă/Importă</button>
         <div style="margin-top:15px;">
-            <input type="text" id="vSearch" placeholder="Caută voluntar..." oninput="rVol()">
-            
+            <input type="text" id="vSearch" placeholder="Caută..." oninput="rVol()">
             <div id="vMultiBar" class="multi-del-bar">
                 <span id="vSelCount">0 selectați</span>
-                <button class="btn btn-danger" onclick="bulkDel('volunteers', 'vCheck')">Șterge Selecția</button>
+                <button class="btn btn-danger" onclick="bulkDel('volunteers', 'vCheck')">Șterge</button>
             </div>
-
-            <div style="max-height:300px; overflow-y:auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width:30px;"><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
-                            <th>Nume</th>
-                            <th>Telefon</th>
-                            <th>Acțiuni</th>
-                        </tr>
-                    </thead>
-                    <tbody id="vTab"></tbody>
-                </table>
-            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
+                        <th>Nume</th><th>Telefon</th><th>Acțiuni</th>
+                    </tr>
+                </thead>
+                <tbody id="vTab"></tbody>
+            </table>
         </div>
       </div>
 
       <div class="card">
-        <h3>📑 Audit Programări (Ultimele 50)</h3>
-        
+        <h3>📑 Audit Programări</h3>
         <div id="bMultiBar" class="multi-del-bar">
             <span id="bSelCount">0 selectați</span>
-            <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selecția</button>
+            <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge</button>
         </div>
-
-        <div style="max-height:300px; overflow-y:auto;">
-            <table id="auditTable">
-                <thead>
-                    <tr>
-                        <th style="width:30px;"><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
-                        <th>Voluntar</th>
-                        <th>Data</th>
-                        <th>Interval</th>
-                        <th>User Audit</th>
-                    </tr>
-                </thead>
-                <tbody id="bTab"></tbody>
-            </table>
-        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
+                    <th>Voluntar</th><th>Data</th><th>Interval</th><th>User</th>
+                </tr>
+            </thead>
+            <tbody id="bTab"></tbody>
+        </table>
       </div>
     </div>
   </main>
 </div>
 
-<div id="printArea" style="display:none;">
+<div id="printArea">
   <h2 id="pTitle" style="text-align:center;"></h2>
-  <div id="pGrid"></div>
+  <div class="p-header">
+    <div>Luni</div><div>Marți</div><div>Miercuri</div><div>Joi</div><div>Vineri</div><div>Sâmbătă</div><div>Duminică</div>
+  </div>
+  <div id="pGrid" class="p-grid"></div>
 </div>
 
 <script>
-  // CONFIGURARE FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -207,7 +196,6 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
-  // AUTH
   function openLogin() { document.getElementById("loginBox").style.display = "block"; }
   function closeLogin() { document.getElementById("loginBox").style.display = "none"; }
   function doAuth() {
@@ -216,17 +204,32 @@
   }
   function admOut() { auth.signOut().then(() => location.reload()); }
 
-  // LOCK SYSTEM
   function lk(b) {
     if(isA) b = false;
     const c = document.getElementById("cBox"), t = document.getElementById("tBox");
     b ? (c.classList.add("locked-overlay"), t.classList.add("locked-overlay")) : (c.classList.remove("locked-overlay"), t.classList.remove("locked-overlay"));
   }
 
-  // CALENDAR LOGIC (COLORARE)
+  // RESTRICȚIE LUNI: DOAR LUNA CURENTĂ ȘI URMĂTOAREA PT USERI
+  function chM(o) {
+    const targetDate = new Date(curD.getFullYear(), curD.getMonth() + o, 1);
+    const today = new Date();
+    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+
+    if (!isA) {
+        if (targetDate < currentMonth || targetDate > nextMonth) {
+            alert("Acces restricționat: Poți vedea doar luna curentă și luna viitoare.");
+            return;
+        }
+    }
+    curD.setMonth(curD.getMonth() + o);
+    rCal();
+  }
+
   function rCal() {
     const g = document.getElementById("cGrid"); g.innerHTML = "";
-    document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'});
+    document.getElementById("mLab").innerText = curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
     const y = curD.getFullYear(), m = curD.getMonth(), last = new Date(y, m+1, 0).getDate();
     
     for(let i=1; i<=last; i++) {
@@ -237,11 +240,9 @@
       if(d < new Date().setHours(0,0,0,0) && !isA) {
           btn.classList.add("day-past");
       } else {
-          // Sistem Culori: Verde(0), Galben(1-2), Rosu(3+)
           if (dBs.length === 0) btn.classList.add("day-available");
           else if (dBs.length >= 3) btn.classList.add("day-full");
           else btn.classList.add("day-partial");
-
           btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); };
       }
       if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
@@ -249,7 +250,6 @@
     }
   }
 
-  // TIME SLOTS
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
@@ -274,51 +274,58 @@
     });
   }
 
-  // MULTI-SELECT FUNCTIONS
+  // PRINT AS CALENDAR GRID
+  function prepPrint() {
+    const pg = document.getElementById("pGrid"); pg.innerHTML = "";
+    document.getElementById("pTitle").innerText = "SITUAȚIA PROGRAMĂRILOR - " + document.getElementById("mLab").innerText;
+    
+    const y = curD.getFullYear(), m = curD.getMonth();
+    const firstDay = new Date(y, m, 1).getDay();
+    const offset = (firstDay === 0) ? 6 : firstDay - 1; // Ajustare pt Luni ca prima zi
+
+    // Celule goale la inceput
+    for(let i=0; i<offset; i++) pg.innerHTML += '<div class="p-cell"></div>';
+
+    const last = new Date(y, m+1, 0).getDate();
+    for(let d=1; d<=last; d++) {
+        const dStr = new Date(y, m, d).toDateString();
+        const dB = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
+        let h = `<div class="p-cell"><span class="p-day-num">${d}</span>`;
+        dB.forEach(b => h += `<div class="p-entry"><b>${b.start}-${b.end}</b>: ${b.name}</div>`);
+        pg.innerHTML += h + `</div>`;
+    }
+    window.print();
+  }
+
+  // MULTI-SELECT LOGIC
   function toggleAll(mId, cCls, bId, tId) {
     const isChecked = document.getElementById(mId).checked;
     document.querySelectorAll(`.${cCls}`).forEach(cb => cb.checked = isChecked);
     updSelCount(cCls, bId, tId);
   }
-
   function updSelCount(cls, barId, txtId) {
-    const total = document.querySelectorAll(`.${cls}`).length;
     const sel = document.querySelectorAll(`.${cls}:checked`).length;
-    const masterId = cls === 'vCheck' ? 'vMaster' : 'bMaster';
-    
-    if(document.getElementById(masterId)) {
-        document.getElementById(masterId).checked = (sel === total && total > 0);
-        document.getElementById(masterId).indeterminate = (sel > 0 && sel < total);
-    }
     document.getElementById(barId).style.display = sel > 0 ? "flex" : "none";
-    document.getElementById(txtId).innerText = `${sel} elemente selectate`;
+    document.getElementById(txtId).innerText = `${sel} selectați`;
   }
-
   function bulkDel(path, cls) {
     const selected = document.querySelectorAll(`.${cls}:checked`);
-    if(!confirm(`Ștergi definitiv ${selected.length} elemente?`)) return;
-    const upds = {};
-    selected.forEach(cb => { upds[`/${path}/${cb.value}`] = null; });
-    db.ref().update(upds).then(() => {
-        alert("Șters cu succes!");
-        document.getElementById(cls === 'vCheck' ? 'vMaster' : 'bMaster').checked = false;
-        updSelCount(cls, cls === 'vCheck' ? 'vMultiBar' : 'bMultiBar', cls === 'vCheck' ? 'vSelCount' : 'bSelCount');
-    });
+    if(!confirm(`Ștergi ${selected.length} elemente?`)) return;
+    const upds = {}; selected.forEach(cb => { upds[`/${path}/${cb.value}`] = null; });
+    db.ref().update(upds).then(() => { alert("Șters!"); rVol(); rBTab(); });
   }
 
-  // WATCHERS & RENDER
-  db.ref('settings/maintenance').on('value', s => { isM = s.val(); document.getElementById("mTog").checked = isM; document.getElementById("maintBar").style.display = isM?"block":"none"; if(!isA) vPh(); });
+  // WATCHERS
+  db.ref('settings/maintenance').on('value', s => { isM = s.val(); document.getElementById("maintBar").style.display = isM?"block":"none"; if(!isA) vPh(); });
   auth.onAuthStateChanged(u => {
     isA = !!u;
     document.getElementById("admP").style.display = isA ? "block" : "none";
     document.getElementById("admSel").style.display = isA ? "block" : "none";
     document.getElementById("uAuth").style.display = isA ? "none" : "block";
-    document.getElementById("admStatus").innerHTML = isA ? `<b style="color:green">Admin: ${u.email}</b>` : `<button class="btn btn-primary" onclick="openLogin()">🔓 Login Admin</button>`;
     isA ? lk(false) : vPh();
     rCal(); rVol();
   });
-
-  db.ref('bookings').on('value', s => { bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; rCal(); rBTab(); if(selD) rSlt(); });
+  db.ref('bookings').on('value', s => { bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; rCal(); rBTab(); });
   db.ref('volunteers').on('value', s => { 
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; 
     rVol();
@@ -335,7 +342,7 @@
   function searchMyB(p) {
     const my = bks.filter(b => b.phone === p).sort((a,b) => new Date(a.date) - new Date(b.date));
     if(my.length > 0) {
-        let h = "<div style='background:#f1f5f9; padding:10px; border-radius:8px; font-size:0.8rem; margin-top:10px;'><b>Programările tale:</b><ul>";
+        let h = "<div style='font-size:0.8rem; margin-top:10px;'><b>Programările tale:</b><ul>";
         my.forEach(b => h += `<li>${new Date(b.date).toLocaleDateString('ro-RO')}: ${b.start}-${b.end}</li>`);
         document.getElementById("authMsg").innerHTML += h + "</ul></div>";
     }
@@ -344,20 +351,14 @@
   function rVol() {
     const t = document.getElementById("vTab"), s = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = "";
     vols.filter(v => v.name.toLowerCase().includes(s) || v.phone.includes(s)).forEach(v => {
-        t.innerHTML += `<tr>
-            <td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td>
-            <td>${v.name}</td><td>${v.phone}</td><td><button onclick="delV('${v.id}')">❌</button></td>
-        </tr>`;
+        t.innerHTML += `<tr><td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td><td>${v.name}</td><td>${v.phone}</td><td><button onclick="delV('${v.id}')">❌</button></td></tr>`;
     });
   }
 
   function rBTab() {
     const t = document.getElementById("bTab"); t.innerHTML = "";
     bks.sort((a,b)=>new Date(b.auditTime)-new Date(a.auditTime)).slice(0, 50).forEach(b => {
-        t.innerHTML += `<tr>
-            <td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td>
-            <td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td><td>${b.auditUser}</td>
-        </tr>`;
+        t.innerHTML += `<tr><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td><td>${b.auditUser}</td></tr>`;
     });
   }
 
@@ -369,23 +370,8 @@
       .then(() => { selS=null; selE=null; rSlt(); alert("Salvat!"); });
   }
 
-  function prepPrint() {
-    const pg = document.getElementById("pGrid"); pg.innerHTML = "";
-    document.getElementById("pTitle").innerText = "SITUAȚIA PROGRAMĂRILOR - " + document.getElementById("mLab").innerText.toUpperCase();
-    const y = curD.getFullYear(), m = curD.getMonth();
-    for(let d=1; d<=new Date(y,m+1,0).getDate(); d++) {
-        const dStr = new Date(y,m,d).toDateString();
-        const dB = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
-        let h = `<div style="border-bottom:1px solid #000; padding:5px;"><b>${d}:</b> `;
-        dB.forEach(b => h += `[${b.start}-${b.end}: ${b.name}] `);
-        pg.innerHTML += h + `</div>`;
-    }
-    window.print();
-  }
-
   function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
-  function delV(id) { if(confirm("Ștergi voluntarul?")) db.ref('volunteers/'+id).remove(); }
-  function chM(o) { curD.setMonth(curD.getMonth()+o); rCal(); }
+  function delV(id) { if(confirm("Ștergi?")) db.ref('volunteers/'+id).remove(); }
   function tglM(v) { db.ref('settings/maintenance').set(v); }
   function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup.json'; a.click(); }); }
 
