@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.1.2</title>
+  <title>SMURD Programări v6.1.2 - Audit Logs</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -11,78 +11,43 @@
 
   <style>
     :root { 
-      /* TEMA RED AMBULANCE */
-      --primary: #dc2626; /* Roșu SMURD */
-      --primary-hover: #b91c1c;
-      --danger: #991b1b; 
-      --success: #16a34a; 
-      --warning: #f59e0b;
-      --gray-50: #fffcfc; 
-      --gray-100: #fee2e2; 
-      --gray-200: #fecaca; 
-      --text: #0f172a;
+      --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --warning: #f59e0b;
+      --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0; --text: #0f172a;
     }
     body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(--text); margin: 0; padding-bottom: 50px; }
-    
-    .header { 
-      background: #1e293b; /* Dark header pentru contrast cu roșu */
-      color: white;
-      border-bottom: 3px solid var(--primary); 
-      padding: 1rem 2rem; 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      position: sticky; 
-      top: 0; 
-      z-index: 100; 
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
-    }
-    
+    .header { background: white; border-bottom: 1px solid var(--gray-200); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
     @media (min-width: 1024px) { .container { grid-template-columns: 380px 1fr; } }
     
-    .card { background: white; border-radius: 12px; border: 1px solid var(--gray-200); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 700; cursor: pointer; border: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; text-decoration: none; justify-content: center; text-transform: uppercase; }
+    .card { background: white; border-radius: 12px; border: 1px solid var(--gray-200); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; text-decoration: none; justify-content: center; }
     .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-hover); }
     .btn-danger { background: var(--danger); color: white; }
     .btn-success { background: var(--success); color: white; }
     .btn-outline { background: transparent; border: 1px solid var(--gray-200); color: var(--text); }
     
-    /* EFECT PULSE PENTRU BUTONUL ACTIV */
-    #cBtn:not(:disabled) {
-      animation: pulse-red 2s infinite;
-    }
-    @keyframes pulse-red {
-      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-      70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-    }
-
     #printView { display: none; } 
 
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
-    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-    .cal-day:hover:not(.day-past) { border-color: var(--primary); color: var(--primary); }
-    .cal-day.selected { background: var(--primary) !important; color: white !important; border-color: var(--primary); }
+    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .cal-day.selected { background: var(--primary) !important; color: white !important; }
     .day-free { background: #f0fdf4; color: #166534; }
-    .day-full { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-    .day-past { opacity: 0.3; cursor: not-allowed; background: var(--gray-100); }
+    .day-full { background: #fee2e2; color: #991b1b; }
+    .day-past, .day-locked { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); }
 
     .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-    .time-slot { padding: 12px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: bold; }
     .time-slot.active { background: var(--primary); color: white; border-color: var(--primary); }
-    .time-slot.taken { background: #fee2e2; color: #991b1b; cursor: not-allowed; border-color: #fca5a5; position: relative; }
-    .time-slot.taken::after { content: '✖'; font-size: 0.7rem; position: absolute; top: 2px; right: 4px; }
+    .time-slot.taken { background: #fee2e2; color: #991b1b; cursor: not-allowed; border-color: #fca5a5; }
     
     .locked-overlay { opacity: 0.4; pointer-events: none !important; filter: grayscale(1); }
-    #maintBar { display: none; background: var(--warning); color: white; text-align: center; padding: 15px; font-weight: bold; margin-bottom: 15px; border-radius: 8px; border: 2px dashed white; }
+    #maintBar { display: none; background: var(--warning); color: white; text-align: center; padding: 15px; font-weight: bold; margin-bottom: 15px; border-radius: 8px; }
     
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td { padding: 12px; border-bottom: 1px solid var(--gray-200); text-align: left; }
-    th { background: var(--gray-100); color: var(--danger); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
+    th { background: var(--gray-100); }
 
-    #loginModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
+    #loginModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
 
     @media print {
       @page { size: landscape; margin: 1cm; }
@@ -101,66 +66,66 @@
 <body>
 
 <div id="loginModal">
-  <div class="card" style="width:320px; border-top: 5px solid var(--primary);">
-    <h3 style="text-align:center;">🔓 ACCES ADMIN</h3>
-    <input type="email" id="admEmail" placeholder="Email Administrator" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">
-    <input type="password" id="admPass" placeholder="Parolă" style="width:100%; padding:12px; margin-bottom:15px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">
-    <div style="display:flex; flex-direction:column; gap:10px;">
-      <button class="btn btn-primary" onclick="doAuth()">Autentificare</button>
+  <div class="card" style="width:300px;">
+    <h3>🔓 Autentificare Admin</h3>
+    <input type="email" id="admEmail" placeholder="Email" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc;">
+    <input type="password" id="admPass" placeholder="Parolă" style="width:100%; padding:10px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc;">
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="doAuth()">Login</button>
       <button class="btn btn-outline" onclick="closeAuth()">Anulează</button>
     </div>
   </div>
 </div>
 
 <header class="header no-print">
-  <div style="display:flex; align-items:center; gap:12px;">
-    <span style="font-size: 1.5rem;">🚑</span>
-    <h1 style="font-size:1.2rem; margin:0; letter-spacing: 1px;">PROGRAMĂRI VOLUNTARI SMURD <span style="color:var(--primary)">v6.1.2</span></h1>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span>🚒</span>
+    <h1 style="font-size:1.1rem; margin:0;">Programări voluntari SMURD</h1>
   </div>
   <div>
-    <button class="btn btn-primary" id="loginBtn" onclick="openAuth()">🔓 ADMIN</button>
-    <button class="btn btn-danger" id="logoutBtn" style="display:none;" onclick="admOut()">🔒 IEȘIRE</button>
+    <span id="admName" style="font-weight:bold; color:var(--primary); margin-right:10px;"></span>
+    <button class="btn btn-primary" id="loginBtn" onclick="openAuth()">🔓 Login</button>
+    <button class="btn btn-danger" id="logoutBtn" style="display:none;" onclick="admOut()">🔒 Ieșire</button>
   </div>
 </header>
 
 <div class="container no-print">
   <aside>
-    <div id="maintBar">⚠️ MOD MENTENANȚĂ ACTIVAT</div>
-    
-    <div class="card" id="uAuth" style="border-left: 4px solid var(--primary);">
-      <h3>🔑 IDENTIFICARE VOLUNTAR</h3>
-      <input type="text" id="pAuth" placeholder="Introduceți datele de identificare.." oninput="vPh()" style="width:100%; padding:14px; border-radius:8px; border:1px solid #ccc; font-size: 1rem; box-sizing: border-box;">
-      <div id="authMsg" style="margin-top:10px; font-weight:bold; font-size: 0.9rem;"></div>
+    <div id="maintBar">⚠️ MOD MENTENANȚĂ ACTIV</div>
+    <div class="card" id="uAuth">
+      <h3>🔑 Identificare</h3>
+      <input type="text" id="pAuth" placeholder="Introdu datele de identificare.." oninput="vPh()" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc;">
+      <div id="authMsg" style="margin-top:10px; font-weight:bold;"></div>
     </div>
 
     <div class="card" id="searchBox">
-      <h3>🔍 VERIFICĂ PROGRAMĂRI</h3>
+      <h3>🔍 Programările Mele</h3>
       <div style="display:flex; gap:5px;">
-        <input type="text" id="sPhone" placeholder="Introduceți datele de identificare.." style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="text" id="sPhone" placeholder="Introdu datele de identificare.." style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
         <button class="btn btn-primary" onclick="searchB()">Caută</button>
       </div>
-      <div id="searchRes" style="margin-top:15px; font-size:0.85rem; max-height:200px; overflow-y:auto; border-top: 1px solid #eee; padding-top: 10px;"></div>
+      <div id="searchRes" style="margin-top:15px; font-size:0.85rem; max-height:200px; overflow-y:auto;"></div>
     </div>
 
-    <div class="card" id="admSel" style="display:none; border-left: 4px solid var(--success);">
-      <h3>👤 VOLUNTAR (MOD ADMIN)</h3>
-      <select id="vSel" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--success);"></select>
+    <div class="card" id="admSel" style="display:none;">
+      <h3>👤 Selectează Voluntar (Admin)</h3>
+      <select id="vSel" style="width:100%; padding:12px; border-radius:8px;"></select>
     </div>
-
     <div class="card locked-overlay" id="tBox">
-      <h3>🕒 INTERVAL ORAR</h3>
+      <h3>🕒 Interval Orar</h3>
       <div class="time-grid" id="tGrid"></div>
-      <button id="cBtn" class="btn btn-primary" style="width:100%; margin-top:20px; padding: 15px;" onclick="saveB()" disabled>Confirmă Programarea</button>
+      <p id="limitMsg" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; margin-top: 10px;"></p>
+      <button id="cBtn" class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="saveB()" disabled>Confirmă Programarea</button>
     </div>
   </aside>
 
   <main>
     <div class="card locked-overlay" id="cBox">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--gray-100); padding-bottom: 10px;">
-        <h3 id="mLab" style="margin:0; text-transform: uppercase; color: var(--primary);">Calendar</h3>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-outline" onclick="chM(-1)">◄</button>
-          <button class="btn btn-outline" onclick="chM(1)">►</button>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="mLab" style="margin:0;">Calendar</h3>
+        <div style="display: flex; gap: 5px;">
+          <button class="btn btn-outline" onclick="chM(-1)">←</button>
+          <button class="btn btn-outline" onclick="chM(1)">→</button>
         </div>
       </div>
       <div class="calendar-grid" id="cGrid"></div>
@@ -168,51 +133,52 @@
 
     <div id="admP" style="display:none;">
       <div class="card" style="border: 2px solid var(--warning); background: #fffcf0;">
-        <h3 style="color: var(--warning); margin-top:0;">⚙️ SETĂRI SISTEM</h3>
-        <label class="btn btn-outline" style="cursor:pointer; background: white;"><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Blochează accesul voluntarilor</label>
+        <h3>⚙️ Mentenanță</h3>
+        <label class="btn btn-outline" style="cursor:pointer;"><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Blochează Acces Voluntari</label>
       </div>
 
       <div class="card">
-        <h3>💾 ADMINISTRARE DATE</h3>
+        <h3>💾 Gestiune & Print</h3>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <button class="btn btn-success" onclick="prepPrint()">🖨️ Print Vizual</button>
-          <button class="btn btn-outline" onclick="exportData()">📥 Backup JSON</button>
-          <label class="btn btn-outline" style="cursor: pointer;">📤 Import JSON <input type="file" accept=".json" style="display: none;" onchange="importData(event)"></label>
+          <button class="btn btn-success" onclick="prepPrint()">🖨️ Print Vizual Calendar</button>
+          <button class="btn btn-primary" onclick="exportData()">📥 Export Backup JSON</button>
+          <label class="btn btn-success" style="cursor: pointer;">📤 Import Backup JSON <input type="file" accept=".json" style="display: none;" onchange="importData(event)"></label>
         </div>
       </div>
 
       <div class="card">
-        <h3>📋 PROGRAMĂRI LUNA CURENTĂ (AUDIT)</h3>
-        <div style="overflow-x: auto;">
-          <table>
-            <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Detalii Creare</th></tr></thead>
-            <tbody id="bTab"></tbody>
-          </table>
-        </div>
-        <button class="btn btn-danger" style="margin-top:15px;" onclick="bDel('b-ck', 'bookings')">Șterge Programările Selectate</button>
+        <h3>📋 Lista Programări (Audit)</h3>
+        <table>
+          <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Audit</th></tr></thead>
+          <tbody id="bTab"></tbody>
+        </table>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Programările Selectate</button>
       </div>
 
       <div class="card">
-        <h3>👥 GESTIUNE WHITELIST</h3>
-        <div style="background: var(--gray-50); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--gray-200);">
-          <input type="text" id="vSearch" placeholder="Căutare după nume sau telefon..." oninput="rVol()" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box;">
+        <h3>👥 Gestiune Whitelist Voluntari</h3>
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span>🔍</span>
+            <input type="text" id="vSearch" placeholder="Caută voluntar..." oninput="rVol()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+          </div>
         </div>
-        <textarea id="bIn" rows="2" placeholder="Nume, Telefon (Ex: Popescu Ion, 0722...)" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px; border: 1px solid #ccc; box-sizing: border-box;"></textarea>
-        <button class="btn btn-primary" style="width:100%;" onclick="impV()">Adaugă în Whitelist</button>
-        <div style="max-height: 300px; overflow-y: auto; margin-top:15px; border: 1px solid var(--gray-200); border-radius: 8px;">
+        <textarea id="bIn" rows="3" placeholder="Nume, Telefon" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px; border: 1px solid #ccc;"></textarea>
+        <button class="btn btn-primary" style="width:100%;" onclick="impV()">Importă în Whitelist</button>
+        <div style="max-height: 250px; overflow-y: auto; margin-top:15px; border: 1px solid #eee;">
           <table>
-            <thead><tr><th><input type="checkbox" onclick="tglA('v-ck', this.checked)"></th><th>Nume Voluntar</th><th>Telefon</th></tr></thead>
+            <thead><tr><th><input type="checkbox" onclick="tglA('v-ck', this.checked)"></th><th>Nume</th><th>Telefon</th></tr></thead>
             <tbody id="vTab"></tbody>
           </table>
         </div>
-        <button class="btn btn-danger" style="margin-top:15px;" onclick="bDel('v-ck', 'volunteers')">Elimină Voluntarii Selectați</button>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('v-ck', 'volunteers')">Șterge Voluntarii Selectați</button>
       </div>
     </div>
   </main>
 </div>
 
 <div id="printView">
-    <h1 id="pTitle" style="text-align:center;">PROGRAMĂRI VOLUNTARI SMURD</h1>
+    <h1 id="pTitle" style="text-align:center;">Programări voluntari SMURD</h1>
     <div class="print-day-header">
         <div>Luni</div><div>Marți</div><div>Miercuri</div><div>Joi</div><div>Vineri</div><div>Sâmbătă</div><div>Duminică</div>
     </div>
@@ -238,6 +204,7 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
+  // LOGICĂ AUTENTIFICARE
   function openAuth() { document.getElementById("loginModal").style.display = "flex"; }
   function closeAuth() { document.getElementById("loginModal").style.display = "none"; }
   function doAuth() {
@@ -245,17 +212,19 @@
     auth.signInWithEmailAndPassword(e, p).then(() => closeAuth()).catch(err => alert("Eroare: " + err.message));
   }
 
+  // CĂUTARE PROGRAMĂRI
   function searchB() {
     const p = document.getElementById("sPhone").value.trim();
     const resDiv = document.getElementById("searchRes");
     if(!p) return resDiv.innerHTML = "❌ Introdu un număr.";
     const my = bks.filter(b => b.phone === p).sort((a,b) => new Date(a.date) - new Date(b.date));
     if(my.length === 0) return resDiv.innerHTML = "Nu am găsit programări.";
-    let h = "<b>Programările tale:</b><br><ul style='margin-top:5px; padding-left:15px;'>";
+    let h = "<b>Programările tale:</b><br><ul>";
     my.forEach(b => { h += `<li>${new Date(b.date).toLocaleDateString('ro-RO')} | ${b.start}-${b.end}</li>`; });
     resDiv.innerHTML = h + "</ul>";
   }
 
+  // PRINT VIZUAL
   function prepPrint() {
     const pGrid = document.getElementById("pGrid"); pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
@@ -273,6 +242,7 @@
     window.print();
   }
 
+  // GESTIUNE ORARE
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
@@ -287,10 +257,10 @@
     });
   }
 
+  // FIREBASE EVENTS
   db.ref('settings/maintenance').on('value', s => {
     isM = s.val() === true;
     document.getElementById("maintBar").style.display = isM ? "block" : "none";
-    if(document.getElementById("mTog")) document.getElementById("mTog").checked = isM;
     if(!isA) isM ? lk(true) : vPh();
   });
 
@@ -306,7 +276,7 @@
 
   db.ref('volunteers').on('value', s => {
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
-    const sl = document.getElementById("vSel"); sl.innerHTML = '<option value="">-- Alege Voluntar --</option>';
+    const sl = document.getElementById("vSel"); sl.innerHTML = '<option value="">-- Alege --</option>';
     vols.sort((a,b)=>a.name.localeCompare(b.name)).forEach(v => sl.innerHTML += `<option value="${v.phone}">${v.name}</option>`);
     rVol();
   });
@@ -316,39 +286,54 @@
     rCal(); rBTab();
   });
 
+  // SALVARE DATE
   function saveB() {
     let n, p, uT, ts = new Date().toLocaleString('ro-RO');
     const startIdx = Math.min(selS, selE), endIdx = Math.max(selS, selE);
     if(isA) { 
-      const s = document.getElementById("vSel"); if(!s.value) return alert("Selectați un voluntar!");
+      const s = document.getElementById("vSel"); if(!s.value) return alert("Alege!");
       p = s.value; n = s.options[s.selectedIndex].text; uT = `Admin (${auth.currentUser.email})`; 
     } else { 
       p = document.getElementById("pAuth").value.trim(); const v = vols.find(u=>u.phone===p); 
-      if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limită atinsă: Maxim 2 programări pe lună!"); 
+      if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limita 2/lună!"); 
       n = v.name; uT = "Voluntar"; 
     }
     db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[startIdx], end: hrs[endIdx], auditUser: uT, auditTime: ts })
-      .then(() => { alert("Programare confirmată!"); selS=null; selE=null; rSlt(); });
+      .then(() => { alert("Salvat!"); selS=null; selE=null; rSlt(); });
   }
 
-  // AUDIT DELETE LOG (v6.1.2)
+  // FUNCȚIE MODIFICATĂ: ȘTERGERE CU AUDIT LOG (v6.1.2)
   async function bDel(c, r) { 
-    const ids = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value);
-    if(ids.length === 0) return;
-    if(confirm(`Sigur ștergi ${ids.length} elemente? Acțiunea va fi jurnalizată.`)) {
-      const adm = auth.currentUser ? auth.currentUser.email : "Unknown";
-      const ts = new Date().toLocaleString('ro-RO');
-      for(let id of ids) {
+    const selectedIds = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value);
+    if(selectedIds.length === 0) return;
+    
+    if(confirm(`Sigur ștergi ${selectedIds.length} elemente? Această acțiune va fi jurnalizată.`)) {
+      const adminEmail = auth.currentUser ? auth.currentUser.email : "Unknown Admin";
+      const timestamp = new Date().toLocaleString('ro-RO');
+
+      for(let id of selectedIds) {
         try {
-          const snap = await db.ref(r + '/' + id).once('value');
-          const old = snap.val();
-          if(old) {
-            await db.ref('logs/deletions').push({ deletedBy: adm, deletedAt: ts, type: r, originalData: old });
+          // 1. Preluăm datele înainte de ștergere
+          const snapshot = await db.ref(r + '/' + id).once('value');
+          const oldData = snapshot.val();
+
+          if(oldData) {
+            // 2. Salvăm în log-ul de ștergeri
+            await db.ref('logs/deletions').push({
+              deletedBy: adminEmail,
+              deletedAt: timestamp,
+              type: r, // 'bookings' sau 'volunteers'
+              originalData: oldData
+            });
+
+            // 3. Ștergem datele originale
             await db.ref(r + '/' + id).remove();
           }
-        } catch(e) { console.error(e); }
+        } catch(e) {
+          console.error("Eroare la ștergere ID " + id, e);
+        }
       }
-      alert("Ștergere finalizată.");
+      alert("Elemente șterse și salvate în log!");
     }
   }
 
@@ -367,21 +352,18 @@
       const d = new Date(y, m, i), btn = document.createElement("button"); btn.className = "cal-day"; btn.innerText = i;
       const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
       if(d < new Date().setHours(0,0,0,0) && !isA) btn.classList.add("day-past");
-      else { 
-        btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free"); 
-        btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); }; 
-      }
+      else { btn.classList.add(dBs.length >= 4 ? "day-full" : "day-free"); btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); }; }
       if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
       g.appendChild(btn);
     }
   }
 
-  function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "<span style='color:var(--success)'>✅ Acces permis: " + v.name + "</span>"; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"<span style='color:var(--danger)'>❌ Telefon neautorizat</span>"; } }
+  function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ " + v.name; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; } }
   function lk(b) { const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); b ? (cb.classList.add("locked-overlay"), tb.classList.add("locked-overlay")) : (cb.classList.remove("locked-overlay"), tb.classList.remove("locked-overlay")); }
   
   function chM(o) { 
     const now = new Date(), target = new Date(curD.getFullYear(), curD.getMonth() + o, 1);
-    if(!isA && (target < new Date(now.getFullYear(), now.getMonth(), 1) || target > new Date(now.getFullYear(), now.getMonth() + 1, 1))) { alert("Puteți programa doar pentru luna curentă și următoarea."); return; }
+    if(!isA && (target < new Date(now.getFullYear(), now.getMonth(), 1) || target > new Date(now.getFullYear(), now.getMonth() + 1, 1))) { alert("Limită: Luna curentă/următoare."); return; }
     curD.setMonth(curD.getMonth()+o); rCal(); rBTab(); 
   }
 
@@ -396,7 +378,7 @@
   }
 
   function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
-  function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup_smurd.json'; a.click(); }); }
+  function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup.json'; a.click(); }); }
   function importData(e) { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (e) => { try { db.ref().set(JSON.parse(e.target.result)).then(() => location.reload()); } catch(err) { alert("Eroare JSON!"); } }; r.readAsText(f); }
 
   rCal();
