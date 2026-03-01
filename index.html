@@ -259,7 +259,7 @@
   function searchMyB(p) {
     const my = bks.filter(b => b.phone === p).sort((a,b) => new Date(a.date) - new Date(b.date));
     if(my.length > 0) {
-        let h = "<div style='background:#f1f5f9; padding:10px; border-radius:8px; font-size:0.8rem; margin-top:10px;'><b>Gărzile tale:</b><ul style='margin:5px 0; padding-left:15px;'>";
+        let h = "<div style='background:#f1f5f9; padding:10px; border-radius:8px; font-size:0.8rem; margin-top:10px;'><b>Programările tale:</b><ul style='margin:5px 0; padding-left:15px;'>";
         my.forEach(b => h += `<li>${new Date(b.date).toLocaleDateString('ro-RO', {day:'2-digit', month:'2-digit', year:'4-digit'})}: ${b.start}-${b.end}</li>`);
         document.getElementById("authMsg").innerHTML += h + "</ul></div>";
     }
@@ -304,9 +304,11 @@
     });
   }
 
-  function prepPrint() {
+function prepPrint() {
     const pg = document.getElementById("pGrid"); pg.innerHTML = "";
-    document.getElementById("pTitle").innerText = "PROGRAM GĂRZI - " + document.getElementById("mLab").innerText;
+        // Am adăugat .toUpperCase() la finalul preluării textului din mLab
+    const lunaMajuscule = document.getElementById("mLab").innerText.toUpperCase();
+    document.getElementById("pTitle").innerText = "SITUAȚIA PROGRAMĂRILOR PENTRU LUNA - " + lunaMajuscule;
     const y = curD.getFullYear(), m = curD.getMonth(), first = new Date(y,m,1).getDay();
     const offset = (first === 0) ? 6 : first - 1;
     for(let i=0; i<offset; i++) pg.innerHTML += '<div class="p-cell"></div>';
@@ -318,7 +320,7 @@
         pg.innerHTML += h + `</div>`;
     }
     window.print();
-  }
+}
 
   function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
   function delV(id) { if(confirm("Ștergi voluntarul?")) db.ref('volunteers/'+id).remove(); }
@@ -330,5 +332,6 @@
 </script>
 </body>
 </html>
+
 
 
