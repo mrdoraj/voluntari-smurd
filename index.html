@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v5.7</title>
+  <title>SMURD Programări voluntari v5.7.4</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -52,11 +52,8 @@
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
 
-    /* MODAL LOGIN */
     #loginModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
 
-    /* STILURI PRINT CALENDAR VIZUAL */
-    #printView { display: none; }
     @media print {
       @page { size: landscape; margin: 1cm; }
       body { background: white; }
@@ -68,9 +65,8 @@
       .print-day-header div { border-right: 2px solid #000; padding: 5px; }
       .day-num { font-weight: bold; font-size: 1.2rem; border-bottom: 1px solid #ddd; margin-bottom: 5px; display: block; }
       .b-item { font-size: 0.75rem; border-bottom: 1px dotted #ccc; padding: 2px 0; }
-      /* Culori solicitate */
-      .status-partial { background-color: #e0f2fe !important; color: #0369a1 !important; } /* Albastru deschis */
-      .status-full { background-color: #fee2e2 !important; color: #b91c1c !important; }    /* Rosu deschis */
+      .status-partial { background-color: #e0f2fe !important; color: #0369a1 !important; }
+      .status-full { background-color: #fee2e2 !important; color: #b91c1c !important; }
     }
   </style>
 </head>
@@ -108,6 +104,16 @@
       <input type="text" id="pAuth" placeholder="Telefon voluntar..." oninput="vPh()" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ccc;">
       <div id="authMsg" style="margin-top:10px; font-weight:bold;"></div>
     </div>
+
+    <div class="card" id="searchBox">
+      <h3>🔍 Programările Mele</h3>
+      <div style="display:flex; gap:5px;">
+        <input type="text" id="sPhone" placeholder="Introdu telefonul..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <button class="btn btn-primary" onclick="searchB()">Caută</button>
+      </div>
+      <div id="searchRes" style="margin-top:15px; font-size:0.85rem; max-height:200px; overflow-y:auto;"></div>
+    </div>
+
     <div class="card" id="admSel" style="display:none;">
       <h3>👤 Selectează Voluntar (Admin)</h3>
       <select id="vSel" style="width:100%; padding:12px; border-radius:8px;"></select>
@@ -177,7 +183,7 @@
   </main>
 </div>
 
-<div id="printView">
+<div id="printView" class="only-print">
     <h1 id="pTitle" style="text-align:center;">Programări voluntari SMURD</h1>
     <div class="print-day-header">
         <div>Luni</div><div>Marți</div><div>Miercuri</div><div>Joi</div><div>Vineri</div><div>Sâmbătă</div><div>Duminică</div>
@@ -210,38 +216,39 @@
     auth.signInWithEmailAndPassword(e, p).then(() => closeAuth()).catch(err => alert("Eroare: " + err.message));
   }
 
+  // LOGICA NOUA: CAUTARE
+  function searchB() {
+    const p = document.getElementById("sPhone").value.trim();
+    const resDiv = document.getElementById("searchRes");
+    if(!p) return resDiv.innerHTML = "❌ Introdu un număr.";
+    const my = bks.filter(b => b.phone === p).sort((a,b) => new Date(a.date) - new Date(b.date));
+    if(my.length === 0) return resDiv.innerHTML = "Nu am găsit programări.";
+    let h = "<b>Rezultate:</b><br><ul style='padding-left:20px; margin-top:5px;'>";
+    my.forEach(b => {
+      const d = new Date(b.date).toLocaleDateString('ro-RO');
+      h += `<li>${d} | ${b.start}-${b.end}</li>`;
+    });
+    h += "</ul>";
+    resDiv.innerHTML = h;
+  }
+
   function prepPrint() {
     const pGrid = document.getElementById("pGrid");
     pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
     document.getElementById("pTitle").innerText = "PROGRAMĂRI VOLUNTARI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
-
     const firstDay = new Date(y, m, 1).getDay();
     const lastDate = new Date(y, m + 1, 0).getDate();
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
-
     for(let i=0; i<offset; i++) pGrid.innerHTML += '<div class="print-cell"></div>';
-
     for(let d=1; d<=lastDate; d++) {
         const dStr = new Date(y, m, d).toDateString();
         const dayBks = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
-        
-        // Calcul acoperire: daca avem peste 12 ore ocupate, consideram rosu (full)
         let totalHours = 0;
-        dayBks.forEach(b => {
-            const s = parseInt(b.start), e = parseInt(b.end);
-            totalHours += (e - s);
-        });
-
-        let statusClass = "";
-        if(dayBks.length > 0) {
-            statusClass = totalHours >= 12 ? "status-full" : "status-partial";
-        }
-
+        dayBks.forEach(b => { totalHours += (parseInt(b.end) - parseInt(b.start)); });
+        let statusClass = dayBks.length > 0 ? (totalHours >= 12 ? "status-full" : "status-partial") : "";
         let html = `<div class="print-cell ${statusClass}"><span class="day-num">${d}</span>`;
-        dayBks.forEach(b => {
-            html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`;
-        });
+        dayBks.forEach(b => { html += `<div class="b-item"><b>${b.start}-${b.end}</b>: ${b.name}</div>`; });
         html += `</div>`;
         pGrid.innerHTML += html;
     }
@@ -258,10 +265,7 @@
       else {
         const act = (selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE));
         if(act) s.classList.add("active");
-        s.onclick = () => { 
-          if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } 
-          rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); 
-        };
+        s.onclick = () => { if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); };
       }
       g.appendChild(s);
     });
