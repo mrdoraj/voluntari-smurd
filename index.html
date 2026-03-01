@@ -26,7 +26,7 @@
     .btn-success { background: var(--success); color: white; }
     .btn-outline { background: transparent; border: 1px solid var(--gray-200); color: var(--text); }
     
-    /* STYLE REPARAȚIE VIZUALĂ */
+    /* REPARAȚIE VIZUALĂ: Ascunde elementele de print în browser */
     #printView { display: none; } 
 
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
@@ -137,24 +137,39 @@
     <div id="admP" style="display:none;">
       <div class="card" style="border: 2px solid var(--warning); background: #fffcf0;">
         <h3>⚙️ Mentenanță</h3>
-        <label class="btn btn-outline"><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Blochează Acces Voluntari</label>
+        <label class="btn btn-outline" style="cursor:pointer;"><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Blochează Acces Voluntari</label>
       </div>
 
       <div class="card">
         <h3>💾 Gestiune & Print</h3>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <button class="btn btn-success" onclick="prepPrint()">🖨️ Print Vizual</button>
-          <button class="btn btn-primary" onclick="exportData()">📥 Export JSON</button>
+          <button class="btn btn-success" onclick="prepPrint()">🖨️ Print Vizual Calendar</button>
+          <button class="btn btn-primary" onclick="exportData()">📥 Export Backup JSON</button>
+          <label class="btn btn-success" style="cursor: pointer;">📤 Import Backup JSON <input type="file" accept=".json" style="display: none;" onchange="importData(event)"></label>
         </div>
       </div>
 
       <div class="card">
-        <h3>📋 Lista Programări</h3>
+        <h3>📋 Lista Programări (Editare/Audit)</h3>
         <table>
-          <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Creat de</th></tr></thead>
+          <thead><tr><th class="no-print"><input type="checkbox" onclick="tglA('b-ck', this.checked)"></th><th>Voluntar</th><th>Data</th><th>Interval</th><th>Audit (Creat de)</th></tr></thead>
           <tbody id="bTab"></tbody>
         </table>
-        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Selecția</button>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('b-ck', 'bookings')">Șterge Programările Selectate</button>
+      </div>
+
+      <div class="card">
+        <h3>👥 Gestiune Whitelist Voluntari</h3>
+        <p style="font-size:0.8rem; color:#666;">Format import: Nume, Telefon (unul pe linie)</p>
+        <textarea id="bIn" rows="3" placeholder="Ex: Ion Popescu, 0722123456" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px; border: 1px solid #ccc;"></textarea>
+        <button class="btn btn-primary" style="width:100%;" onclick="impV()">Importă în Whitelist</button>
+        <div style="max-height: 250px; overflow-y: auto; margin-top:15px; border: 1px solid #eee;">
+          <table>
+            <thead><tr><th><input type="checkbox" onclick="tglA('v-ck', this.checked)"></th><th>Nume</th><th>Telefon</th></tr></thead>
+            <tbody id="vTab"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="bDel('v-ck', 'volunteers')">Șterge Voluntarii Selectați</button>
       </div>
     </div>
   </main>
@@ -199,7 +214,7 @@
     if(!p) return resDiv.innerHTML = "❌ Introdu un număr.";
     const my = bks.filter(b => b.phone === p).sort((a,b) => new Date(a.date) - new Date(b.date));
     if(my.length === 0) return resDiv.innerHTML = "Nu am găsit programări.";
-    let h = "<b>Rezultate:</b><br><ul style='padding-left:20px;'>";
+    let h = "<b>Programările tale:</b><br><ul style='padding-left:20px;'>";
     my.forEach(b => { h += `<li>${new Date(b.date).toLocaleDateString('ro-RO')} | ${b.start}-${b.end}</li>`; });
     resDiv.innerHTML = h + "</ul>";
   }
@@ -208,7 +223,7 @@
     const pGrid = document.getElementById("pGrid");
     pGrid.innerHTML = "";
     const y = curD.getFullYear(), m = curD.getMonth();
-    document.getElementById("pTitle").innerText = "PROGRAMĂRI voluntari SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
+    document.getElementById("pTitle").innerText = "PROGRAMĂRI VOLUNTARI SMURD - " + curD.toLocaleString('ro-RO', {month:'long', year:'numeric'}).toUpperCase();
     const firstDay = new Date(y, m, 1).getDay();
     const lastDate = new Date(y, m + 1, 0).getDate();
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
@@ -245,6 +260,7 @@
   db.ref('settings/maintenance').on('value', s => {
     isM = s.val() === true;
     document.getElementById("maintBar").style.display = isM ? "block" : "none";
+    if(document.getElementById("mTog")) document.getElementById("mTog").checked = isM;
     if(!isA) { if(isM) lk(true); else vPh(); }
   });
 
@@ -262,6 +278,7 @@
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
     const sl = document.getElementById("vSel"); sl.innerHTML = '<option value="">-- Alege --</option>';
     vols.sort((a,b)=>a.name.localeCompare(b.name)).forEach(v => sl.innerHTML += `<option value="${v.phone}">${v.name}</option>`);
+    rVol();
   });
 
   db.ref('bookings').on('value', s => {
@@ -277,7 +294,7 @@
       p = s.value; n = s.options[s.selectedIndex].text; uT = `Admin (${auth.currentUser.email})`; 
     } else { 
       p = document.getElementById("pAuth").value.trim(); const v = vols.find(u=>u.phone===p); 
-      if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Programarea este limitata la 2/lună!"); 
+      if(bks.filter(b=>b.phone===p && new Date(b.date).getMonth()===selD.getMonth()).length>=2) return alert("Limita 2/lună!"); 
       n = v.name; uT = "Voluntar"; 
     }
     db.ref('bookings').push({ name: n, phone: p, date: selD.toISOString(), start: hrs[startIdx], end: hrs[endIdx], auditUser: uT, auditTime: ts })
@@ -311,8 +328,11 @@
   function tglM(v) { db.ref('settings/maintenance').set(v); }
   function admOut() { auth.signOut(); }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
-  function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
+  function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Sigur ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
+  function rVol() { const t = document.getElementById("vTab"); t.innerHTML = ""; vols.forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); }
+  function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
   function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup.json'; a.click(); }); }
+  function importData(e) { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (e) => { try { db.ref().set(JSON.parse(e.target.result)).then(() => location.reload()); } catch(err) { alert("Eroare JSON!"); } }; r.readAsText(f); }
 
   rCal();
 </script>
