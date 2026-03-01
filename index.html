@@ -251,7 +251,23 @@
       if(dBs.some(b => h >= b.start && h < b.end) && !isA) s.classList.add("taken");
       else {
         if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
-        s.onclick = () => { if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; } else { selE=i; } rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null); };
+    // În interiorul funcției rSlt(), modifică partea de click pe slot:
+    s.onclick = () => { 
+    if(selS===null || (selS!==null && selE!==null)) { 
+        selS=i; selE=null; 
+    } else { 
+        const min = Math.min(selS, i), max = Math.max(selS, i);
+        // MODIFICARE: Verificăm suprapunerea DOAR dacă NU este admin
+        const hasOverlap = dBs.some(b => hrs.indexOf(b.start) < max && (b.end==="22:00"?22:hrs.indexOf(b.end)) > min);
+        
+        if(hasOverlap && !isA) { 
+            return alert("Suprapunere! Doar un administrator poate adăuga gărzi peste intervale ocupate."); 
+        } 
+        selE=i; 
+    } 
+    rSlt(); 
+    document.getElementById("cBtn").disabled = (selS===null || selE===null); 
+};
       }
       g.appendChild(s);
     });
@@ -264,7 +280,7 @@
     if(!isA) isM ? lk(true) : vPh();
   });
 
-  auth.onAuthStateChanged(u => {
+auth.onAuthStateChanged(u => {
     isA = !!u;
     document.getElementById("admP").style.display = isA ? "block" : "none";
     document.getElementById("admSel").style.display = isA ? "block" : "none";
@@ -272,13 +288,12 @@
     document.getElementById("loginBtn").style.display = isA ? "none" : "inline-flex";
     document.getElementById("logoutBtn").style.display = isA ? "inline-flex" : "none";
     
-    // LINIA CORECTATĂ: Dacă e admin, deblochează mereu interfața
-    if (isA) {
-        lk(false); 
+    // MODIFICARE: Forțează deblocarea dacă e Admin, altfel verifică telefonul
+    if(isA) {
+        lk(false);
     } else {
-        vPh(); // Verifică telefonul dacă e voluntar
+        vPh();
     }
-    
     rCal();
 });
 
@@ -368,19 +383,12 @@
 
   function vPh() { if(isA || isM) return; const p = document.getElementById("pAuth").value.trim(), v = vols.find(u => u.phone === p); if(v && p !== "") { lk(false); document.getElementById("authMsg").innerHTML = "✅ " + v.name; } else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Neînregistrat"; } }
   function lk(b) { 
-    // Dacă utilizatorul este Admin, forțăm b să fie mereu false (interfață deschisă)
-    if (isA) b = false; 
-
-    const cb = document.getElementById("cBox");
-    const tb = document.getElementById("tBox");
-    
-    if (b) {
-        cb.classList.add("locked-overlay");
-        tb.classList.add("locked-overlay");
-    } else {
-        cb.classList.remove("locked-overlay");
-        tb.classList.remove("locked-overlay");
-    }
+    // Dacă e admin, b devine mereu false, deci elimină clasa locked-overlay
+    if(isA) b = false; 
+    const cb = document.getElementById("cBox"), tb = document.getElementById("tBox"); 
+    b ? (cb.classList.add("locked-overlay"), tb.classList.add("locked-overlay")) 
+      : (cb.classList.remove("locked-overlay"), tb.classList.remove("locked-overlay")); 
+}
 }
   
   function chM(o) { 
@@ -407,4 +415,5 @@
 </script>
 </body>
 </html>
+
 
