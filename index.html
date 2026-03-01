@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări voluntari v5.9</title>
+  <title>SMURD Programări v6.1</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -160,9 +160,18 @@
 
       <div class="card">
         <h3>👥 Gestiune Whitelist Voluntari</h3>
+        
+        <div style="background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.2rem;">🔍</span>
+            <input type="text" id="vSearch" placeholder="Caută voluntar după nume sau telefon..." oninput="rVol()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+          </div>
+        </div>
+
         <p style="font-size:0.8rem; color:#666;">Format import: Nume, Telefon (unul pe linie)</p>
         <textarea id="bIn" rows="3" placeholder="Ex: Ion Popescu, 0722123456" style="width:100%; border-radius:8px; padding:10px; margin-bottom:10px; border: 1px solid #ccc;"></textarea>
         <button class="btn btn-primary" style="width:100%;" onclick="impV()">Importă în Whitelist</button>
+        
         <div style="max-height: 250px; overflow-y: auto; margin-top:15px; border: 1px solid #eee;">
           <table>
             <thead><tr><th><input type="checkbox" onclick="tglA('v-ck', this.checked)"></th><th>Nume</th><th>Telefon</th></tr></thead>
@@ -329,7 +338,16 @@
   function admOut() { auth.signOut(); }
   function tglA(c, k) { Array.from(document.getElementsByClassName(c)).forEach(i => i.checked = k); }
   function bDel(c, r) { const s = Array.from(document.getElementsByClassName(c)).filter(i=>i.checked).map(i=>i.value); if(s.length>0 && confirm("Sigur ștergi?")) s.forEach(id => db.ref(r+'/'+id).remove()); }
-  function rVol() { const t = document.getElementById("vTab"); t.innerHTML = ""; vols.forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); }
+  
+  // MODIFICAT PENTRU SEARCH ÎN WHITELIST
+  function rVol() { 
+    const t = document.getElementById("vTab"); 
+    const searchVal = document.getElementById("vSearch").value.toLowerCase();
+    t.innerHTML = ""; 
+    vols.filter(v => v.name.toLowerCase().includes(searchVal) || v.phone.includes(searchVal))
+        .forEach(v => t.innerHTML += `<tr><td><input type="checkbox" class="v-ck" value="${v.id}"></td><td>${v.name}</td><td>${v.phone}</td></tr>`); 
+  }
+
   function impV() { document.getElementById("bIn").value.split('\n').forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
   function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup.json'; a.click(); }); }
   function importData(e) { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = (e) => { try { db.ref().set(JSON.parse(e.target.result)).then(() => location.reload()); } catch(err) { alert("Eroare JSON!"); } }; r.readAsText(f); }
