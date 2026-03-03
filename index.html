@@ -97,7 +97,7 @@
 <header class="header no-print">
   <div style="font-weight:bold; font-size:1.2rem;">🚑 Programări voluntari SMURD</div>
   <div id="admStatus">
-    <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>
+    <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare / Înregistrare </button>
   </div>
 </header>
 
@@ -460,22 +460,50 @@
   function rSlt() {
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
+    
     hrs.forEach((h, i) => {
-      const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
+      const s = document.createElement("div"); 
+      s.className = "time-slot"; 
+      s.innerText = h;
+      
       const isTaken = dBs.some(b => h >= b.start && h < b.end);
-      if(isTaken) isA ? s.classList.add("overlap-admin") : s.classList.add("taken");
-      if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
+      
+      // 1. Verificăm mai întâi dacă acest slot este în intervalul selectat curent
+      let isActive = false;
+      if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) {
+          isActive = true;
+      }
+
+      // 2. Aplicăm clasele corect, prioritizând vizual starea "active" (albastru)
+      if (isActive) {
+          s.classList.add("active");
+          // Dacă este un overlap de Admin, îi lăsăm doar chenarul de avertizare
+          if (isTaken && isA) {
+              s.style.border = "2px dashed #f59e0b";
+          }
+      } else {
+          if (isTaken) {
+              isA ? s.classList.add("overlap-admin") : s.classList.add("taken");
+          }
+      }
       
       s.onclick = () => {
-          if(isTaken && !isA) return;
-          if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; }
-          else {
-            const min = Math.min(selS, i), max = Math.max(selS, i);
-            if(dBs.some(b => hrs.indexOf(b.start) < max && (b.end==="22:00"?22:hrs.indexOf(b.end)) > min) && !isA) return alert("Suprapunere detectată!");
-            selE=i;
+          if(isTaken && !isA) return; // Blochează voluntarii normali
+          
+          if(selS===null || (selS!==null && selE!==null)) { 
+              selS=i; selE=null; 
+          } else {
+              const min = Math.min(selS, i), max = Math.max(selS, i);
+              // Verificăm dacă există o suprapunere pe intervalul ales de un voluntar
+              if(dBs.some(b => hrs.indexOf(b.start) < max && (b.end==="22:00" ? 22 : hrs.indexOf(b.end)) > min) && !isA) {
+                  return alert("Suprapunere detectată în intervalul selectat!");
+              }
+              selE=i;
           }
-          rSlt(); document.getElementById("cBtn").disabled = (selS===null || selE===null);
+          rSlt(); // Re-desenăm grila
+          document.getElementById("cBtn").disabled = (selS===null || selE===null);
       };
+      
       g.appendChild(s);
     });
   }
@@ -486,24 +514,46 @@
 
     if(isA) {
         const s = document.getElementById("vSel");
-        execSave(s.options[s.selectedIndex].text, s.value, "Admin-Action");
+        const selectedUid = s.value; // Acum luăm UID-ul din selector
+        const selectedName = s.options[s.selectedIndex].text;
+        const selectedPhone = s.options[s.selectedIndex].getAttribute('data-phone');
+        execSave(selectedName, selectedPhone, selectedUid);
     } else {
         db.ref('volunteers/' + user.uid).once('value', s => {
             const v = s.val();
-            const monthlyBks = bks.filter(b => b.phone === v.phone && new Date(b.date).getMonth() === selD.getMonth()).length;
-            if(monthlyBks >= 2) return alert("Maxim 2 programări pe lună!");
+            // Păstrăm și verificarea vizuală/locală pentru un răspuns rapid
+            const monthlyBks = bks.filter(b => b.uid === user.uid && new Date(b.date).getMonth() === selD.getMonth()).length;
+            if(monthlyBks >= 2) return alert("Ai atins limita maximă de 2 programări pe lună!");
             execSave(v.name, v.phone, user.uid);
         });
     }
   }
 
-  function execSave(n, p, auditId) {
+  function execSave(n, p, targetUid) {
     const min = Math.min(selS, selE), max = Math.max(selS, selE);
-    db.ref('bookings').push({ 
-        name:n, phone:p, uid: auditId, date:selD.toISOString(), 
-        start:hrs[min], end:hrs[max+1]||"22:00", 
-        auditUser:isA?"Admin":"Voluntar", auditTime:new Date().toLocaleString() 
-    }).then(() => { selS=null; selE=null; rSlt(); alert("Programare realizată!"); });
+    const shiftDate = new Date(selD);
+    // Generăm o cheie de tipul "2026_03" pentru luna respectivă
+    const monthKey = `${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
+    
+    const newBookingKey = db.ref('bookings').push().key;
+    const updates = {};
+    
+    // 1. Salvăm datele programării
+    updates['/bookings/' + newBookingKey] = { 
+        name: n, phone: p, uid: targetUid, date: selD.toISOString(), 
+        start: hrs[min], end: hrs[max+1] || "22:00", 
+        auditUser: isA ? "Admin" : "Voluntar", auditTime: new Date().toLocaleString() 
+    };
+
+    // 2. Incrementăm contorul lunar al persoanei programate
+    updates[`/shift_counts/${targetUid}/${monthKey}`] = firebase.database.ServerValue.increment(1);
+
+    db.ref().update(updates).then(() => { 
+        selS = null; selE = null; rSlt(); 
+        alert(isA ? "Programare adăugată de Admin!" : "Programare realizată cu succes!"); 
+    }).catch(err => {
+        alert("❌ Programarea a fost respinsă de server. " + (isA ? err.message : "Posibil ai depășit limita lunară."));
+    });
   }
 
   // --- ADMIN & WHITELIST ---
@@ -565,10 +615,29 @@ function resetPass(email) {
   }
   
   // --- UTILITARE ---
-  function searchMyStats(p) {
+   function searchMyStats(p) {
     const today = new Date().setHours(0,0,0,0);
-    const my = bks.filter(b => b.phone === p && new Date(b.date) >= today);
-    document.getElementById("myStats").innerHTML = my.length > 0 ? `<p style="font-size:0.8rem;">Ai <b>${my.length}</b> programări viitoare.</p>` : "";
+    // Filtrăm programările proprii de azi înainte și le ordonăm cronologic
+    const my = bks.filter(b => b.phone === p && new Date(b.date) >= today)
+                  .sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    let html = "";
+    if (my.length > 0) {
+      html += `<p style="font-size:0.85rem; font-weight:bold; color:var(--primary); margin-bottom:5px;">📅 Programările tale viitoare:</p>`;
+      html += `<ul style="list-style:none; padding:0; margin:0; font-size:0.8rem; border-top:1px solid #e2e8f0;">`;
+      my.forEach(b => {
+        const d = new Date(b.date).toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' });
+        html += `<li style="padding:8px 0; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;">
+                   <span>🗓️ <b>${d}</b></span> 
+                   <span style="background:var(--gray-100); padding:2px 6px; border-radius:4px;">🕒 ${b.start} - ${b.end}</span>
+                 </li>`;
+      });
+      html += `</ul>`;
+    } else {
+      html = `<p style="font-size:0.8rem; color:#64748b;">Nu ai nicio programare viitoare.</p>`;
+    }
+    
+    document.getElementById("myStats").innerHTML = html;
   }
 
   function updSelCount(cls, barId, txtId) {
@@ -618,13 +687,10 @@ function resetPass(email) {
       .filter(v => v.status === "approved" || !v.status) 
       : []; 
     rVol();
-    document.getElementById("vSel").innerHTML = vols.sort((a,b)=>a.name.localeCompare(b.name)).map(v => `<option value="${v.phone}">${v.name}</option>`).join('');
+    document.getElementById("vSel").innerHTML = vols.sort((a,b)=>a.name.localeCompare(b.name)).map(v => `<option value="${v.id}" data-phone="${v.phone}">${v.name}</option>`).join('');
   });
 }
 
 </script>
 </body>
 </html>
-
-
-
