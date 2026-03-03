@@ -672,45 +672,47 @@ function prepPrint() {
     const pg = document.getElementById("pGrid"); 
     pg.innerHTML = "";
     
-    // Titlul paginii printate
+    // Set the title for the printed page
     document.getElementById("pTitle").innerText = "SITUAȚIA PROGRAMĂRILOR - " + document.getElementById("mLab").innerText;
     
     const y = curD.getFullYear(), m = curD.getMonth();
     const firstDay = new Date(y, m, 1).getDay();
-    // Adaptăm pentru ca Luni să fie prima zi (în JS Duminica e 0)
+    // Adjust so Monday is the first day (in JS Sunday is 0)
     const offset = (firstDay === 0) ? 6 : firstDay - 1;
     
-    // 1. Adăugăm celulele goale de la începutul lunii
+    // Add empty cells for the beginning of the month
     for(let i=0; i<offset; i++) {
         pg.innerHTML += '<div class="p-cell" style="background: #f8fafc;"></div>';
     }
     
-    // 2. Adăugăm zilele lunii curente
+    // Add the days of the current month
     const last = new Date(y, m+1, 0).getDate();
     for(let d=1; d<=last; d++) {
         const dStr = new Date(y, m, d).toDateString();
-        // Filtrăm și ordonăm cronologic programările din ziua respectivă
+        // Filter and sort bookings chronologically for the day
         const dB = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
         
         let h = `<div class="p-cell"><span class="p-day-num">${d}</span>`;
         
         dB.forEach(b => {
+            // ONLY INCLUDE START/END TIMES AND NAME
             h += `<div class="p-entry">
                     <b>${b.start}-${b.end}</b>: ${b.name}
-                    <span class="p-entry-phone">📞 ${b.phone}</span>
                   </div>`;
         });
         pg.innerHTML += h + `</div>`;
     }
     
-    // 3. Completăm restul grilei cu celule goale la final (ca să fie un dreptunghi perfect)
+    // Fill the rest of the grid with empty cells to make a perfect rectangle
     const totalCells = offset + last;
     const remainingCells = (7 - (totalCells % 7)) % 7;
-    for(let i=0; i<remainingCells; i++) {
-        pg.innerHTML += '<div class="p-cell" style="background: #f8fafc;"></div>';
+    if (remainingCells !== 7) { // Only add if we didn't land perfectly on the end of a row
+      for(let i=0; i<remainingCells; i++) {
+          pg.innerHTML += '<div class="p-cell" style="background: #f8fafc;"></div>';
+      }
     }
     
-    // Declanșăm fereastra de printare a sistemului de operare
+    // Trigger the print dialog
     window.print();
   }
 
