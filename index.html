@@ -711,29 +711,41 @@ function resetPass(email) {
 
 	function bulkDel(path, cls) {
     if(!confirm("Ștergi înregistrările selectate?")) return;
+    
     const upds = {}; 
+    const decrementMap = {}; // Aici vom aduna numărul de ștergeri per persoană și per lună
     
     document.querySelectorAll(`.${cls}:checked`).forEach(cb => { 
         const id = cb.value;
-        // 1. Dăm comanda de ștergere a programării/voluntarului
+        // 1. Punem în așteptare ștergerea programării
         upds[`/${path}/${id}`] = null; 
         
-        // 2. Dacă ștergem o programare, trebuie să decrementăm (scădem) și contorul lunar!
+        // 2. Dacă suntem în modul programări, calculăm câte scădem pentru fiecare voluntar
         if (path === 'bookings') {
-            const bToDel = bks.find(b => b.id === id); // Căutăm datele programării șterse
+            const bToDel = bks.find(b => b.id === id);
             if (bToDel && bToDel.uid) {
                 const shiftDate = new Date(bToDel.date);
                 const monthKey = `${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
+                const countKey = `/shift_counts/${bToDel.uid}/${monthKey}`;
                 
-                // Scădem 1 din contorul lunar al acelui UID folosind increment(-1)
-                upds[`/shift_counts/${bToDel.uid}/${monthKey}`] = firebase.database.ServerValue.increment(-1);
+                // Dacă nu există încă în harta noastră, îl pornim de la 0
+                if (!decrementMap[countKey]) {
+                    decrementMap[countKey] = 0;
+                }
+                // Creștem numărul de ștergeri pentru această persoană/lună
+                decrementMap[countKey]++;
             }
         }
     });
     
-    // Executăm toate modificările simultan
+    // 3. Adăugăm totalul de scăderi în comanda finală pentru Firebase
+    for (const countKey in decrementMap) {
+        // Dacă am adunat 5 ștergeri, va trimite increment(-5)
+        upds[countKey] = firebase.database.ServerValue.increment(-decrementMap[countKey]);
+    }
+    
+    // Executăm toate modificările (ștergeri + actualizare contoare) simultan
     db.ref().update(upds).then(() => {
-        // Ascundem bara de selecție roșie și debifăm master-checkbox-ul pentru un aspect curat
         if(path === 'bookings') {
             document.getElementById('bMultiBar').style.display = 'none';
             if(document.getElementById('bMaster')) document.getElementById('bMaster').checked = false;
