@@ -54,14 +54,23 @@
     .uid-copy-box { background: #f1f5f9; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; border: 1px dashed #cbd5e1; margin-top: 10px; word-break: break-all; }
 
     #printArea { display: none; font-family: sans-serif; color: black; }
-    @media print {
+	@media print {
+      /* Forțăm orientarea paginii pe orizontală și marginile */
+      @page { size: landscape; margin: 1cm; }
+      
+      /* Forțăm printarea culorilor de fundal (esențial pentru headere gri) */
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      
       .no-print { display: none !important; }
       #printArea { display: block !important; width: 100%; }
-      .p-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #000; border-left: 1px solid #000; }
-      .p-cell { border-right: 1px solid #000; border-bottom: 1px solid #000; min-height: 120px; padding: 5px; font-size: 10px; overflow: hidden; }
-      .p-day-num { font-weight: bold; font-size: 14px; border-bottom: 1px solid #eee; display: block; margin-bottom: 4px; }
-      .p-header { display: grid; grid-template-columns: repeat(7, 1fr); font-weight: bold; text-align: center; background: #eee !important; border: 1px solid #000; }
-      .p-entry { margin-bottom: 2px; line-height: 1.1; border-bottom: 1px dotted #ccc; padding-bottom: 1px; }
+      
+      .p-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 2px solid #000; border-left: 2px solid #000; }
+      .p-cell { border-right: 2px solid #000; border-bottom: 2px solid #000; min-height: 110px; padding: 5px; font-size: 11px; overflow: hidden; page-break-inside: avoid; }
+      .p-day-num { font-weight: bold; font-size: 14px; border-bottom: 1px solid #000; display: block; margin-bottom: 4px; background: #f1f5f9; padding: 2px 5px; }
+      .p-header { display: grid; grid-template-columns: repeat(7, 1fr); font-weight: bold; text-align: center; background: #e2e8f0 !important; border: 2px solid #000; border-bottom: none; padding: 8px 0; }
+      
+      .p-entry { margin-bottom: 5px; line-height: 1.2; border-bottom: 1px dotted #ccc; padding-bottom: 3px; }
+      .p-entry-phone { font-size: 9.5px; color: #475569; display: block; }
     }
 
     /* --- STILURI MODAL SIGN UP --- */
@@ -659,20 +668,49 @@ function resetPass(email) {
     db.ref().update(upds);
   }
 
-  function prepPrint() {
-    const pg = document.getElementById("pGrid"); pg.innerHTML = "";
+function prepPrint() {
+    const pg = document.getElementById("pGrid"); 
+    pg.innerHTML = "";
+    
+    // Titlul paginii printate
     document.getElementById("pTitle").innerText = "SITUAȚIA PROGRAMĂRILOR - " + document.getElementById("mLab").innerText;
-    const y = curD.getFullYear(), m = curD.getMonth(), first = new Date(y, m, 1).getDay();
-    const offset = (first === 0) ? 6 : first - 1;
-    for(let i=0; i<offset; i++) pg.innerHTML += '<div class="p-cell"></div>';
+    
+    const y = curD.getFullYear(), m = curD.getMonth();
+    const firstDay = new Date(y, m, 1).getDay();
+    // Adaptăm pentru ca Luni să fie prima zi (în JS Duminica e 0)
+    const offset = (firstDay === 0) ? 6 : firstDay - 1;
+    
+    // 1. Adăugăm celulele goale de la începutul lunii
+    for(let i=0; i<offset; i++) {
+        pg.innerHTML += '<div class="p-cell" style="background: #f8fafc;"></div>';
+    }
+    
+    // 2. Adăugăm zilele lunii curente
     const last = new Date(y, m+1, 0).getDate();
     for(let d=1; d<=last; d++) {
         const dStr = new Date(y, m, d).toDateString();
+        // Filtrăm și ordonăm cronologic programările din ziua respectivă
         const dB = bks.filter(b => new Date(b.date).toDateString() === dStr).sort((a,b)=>a.start.localeCompare(b.start));
+        
         let h = `<div class="p-cell"><span class="p-day-num">${d}</span>`;
-        dB.forEach(b => h += `<div class="p-entry"><b>${b.start}-${b.end}</b>: ${b.name}</div>`);
+        
+        dB.forEach(b => {
+            h += `<div class="p-entry">
+                    <b>${b.start}-${b.end}</b>: ${b.name}
+                    <span class="p-entry-phone">📞 ${b.phone}</span>
+                  </div>`;
+        });
         pg.innerHTML += h + `</div>`;
     }
+    
+    // 3. Completăm restul grilei cu celule goale la final (ca să fie un dreptunghi perfect)
+    const totalCells = offset + last;
+    const remainingCells = (7 - (totalCells % 7)) % 7;
+    for(let i=0; i<remainingCells; i++) {
+        pg.innerHTML += '<div class="p-cell" style="background: #f8fafc;"></div>';
+    }
+    
+    // Declanșăm fereastra de printare a sistemului de operare
     window.print();
   }
 
