@@ -338,6 +338,7 @@
                 document.getElementById("uAuth").style.display = "none";
                 lk(false);
                 loadPendingVolunteers(); // Încărcăm voluntarii în așteptare pentru admin
+                listenToAllVolunteers(); // <--- ADAUGĂ ACEASTĂ LINIE AICI
             } else {
                 document.getElementById("admStatus").innerHTML = `<button class="btn btn-outline" onclick="admOut()">Deconectare</button>`;
                 checkVolunteerStatus(u);
@@ -610,8 +611,8 @@ function resetPass(email) {
   // LISTENERI BAZĂ DE DATE
   db.ref('settings/maintenance').on('value', s => { isM = s.val(); document.getElementById("maintBar").style.display = isM?"block":"none"; if(!isA && isM) lk(true); });
   db.ref('bookings').on('value', s => { bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; rCal(); rBTab(); if(selD) rSlt(); });
+  function listenToAllVolunteers() {
   db.ref('volunteers').on('value', s => { 
-    // Filtrăm voluntarii care au status 'approved' (sau nu au status definit, cum ar fi cei adăugați manual anterior)
     vols = s.val() ? Object.keys(s.val())
       .map(k => ({id:k, ...s.val()[k]}))
       .filter(v => v.status === "approved" || !v.status) 
@@ -619,9 +620,11 @@ function resetPass(email) {
     rVol();
     document.getElementById("vSel").innerHTML = vols.sort((a,b)=>a.name.localeCompare(b.name)).map(v => `<option value="${v.phone}">${v.name}</option>`).join('');
   });
+}
 
 </script>
 </body>
 </html>
+
 
 
