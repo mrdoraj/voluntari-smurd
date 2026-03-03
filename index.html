@@ -709,10 +709,41 @@ function resetPass(email) {
     updSelCount(cCls, bId, tId);
   }
 
-  function bulkDel(path, cls) {
+	function bulkDel(path, cls) {
     if(!confirm("Ștergi înregistrările selectate?")) return;
-    const upds = {}; document.querySelectorAll(`.${cls}:checked`).forEach(cb => { upds[`/${path}/${cb.value}`] = null; });
-    db.ref().update(upds);
+    const upds = {}; 
+    
+    document.querySelectorAll(`.${cls}:checked`).forEach(cb => { 
+        const id = cb.value;
+        // 1. Dăm comanda de ștergere a programării/voluntarului
+        upds[`/${path}/${id}`] = null; 
+        
+        // 2. Dacă ștergem o programare, trebuie să decrementăm (scădem) și contorul lunar!
+        if (path === 'bookings') {
+            const bToDel = bks.find(b => b.id === id); // Căutăm datele programării șterse
+            if (bToDel && bToDel.uid) {
+                const shiftDate = new Date(bToDel.date);
+                const monthKey = `${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
+                
+                // Scădem 1 din contorul lunar al acelui UID folosind increment(-1)
+                upds[`/shift_counts/${bToDel.uid}/${monthKey}`] = firebase.database.ServerValue.increment(-1);
+            }
+        }
+    });
+    
+    // Executăm toate modificările simultan
+    db.ref().update(upds).then(() => {
+        // Ascundem bara de selecție roșie și debifăm master-checkbox-ul pentru un aspect curat
+        if(path === 'bookings') {
+            document.getElementById('bMultiBar').style.display = 'none';
+            if(document.getElementById('bMaster')) document.getElementById('bMaster').checked = false;
+        } else if (path === 'volunteers') {
+            document.getElementById('vMultiBar').style.display = 'none';
+            if(document.getElementById('vMaster')) document.getElementById('vMaster').checked = false;
+        }
+    }).catch(err => {
+        alert("❌ Eroare la ștergere: " + err.message);
+    });
   }
 
 function prepPrint() {
