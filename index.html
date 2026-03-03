@@ -97,7 +97,8 @@
 <header class="header no-print">
   <div style="font-weight:bold; font-size:1.2rem;">🚑 Programări voluntari SMURD</div>
   <div id="admStatus">
-    <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare-Înregistrare </button>
+    <button class="btn btn-success" onclick="openSignUpModal()" style="margin-right: 10px;">📝 Înregistrare</button>
+    <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>
   </div>
 </header>
 
@@ -108,7 +109,6 @@
             <input type="email" id="admEmail" placeholder="Email">
             <input type="password" id="admPass" placeholder="Parolă">
             <button class="btn btn-primary" style="width:100%; margin-bottom: 10px;" onclick="doAuth()">Login</button>
-            <button class="btn btn-success" style="width:100%; margin-bottom: 10px;" onclick="openSignUpModal()">Înregistrare Voluntar Nou</button>
             <button class="btn btn-outline" style="width:100%;" onclick="closeLogin()">Anulează</button>
         </div>
     </div>
@@ -121,7 +121,7 @@
     <input type="text" id="suName" placeholder="Nume complet" required>
     <input type="text" id="suPhone" placeholder="Număr de telefon" required>
     <input type="email" id="suEmail" placeholder="Adresă de Email" required>
-    <input type="password" id="suPass" placeholder="Parolă (min. 8 caractere)" required>
+    <input type="password" id="suPass" placeholder="Parolă (min. 6 caractere)" required>
     <button onclick="registerVolunteer()">Trimite Cererea</button>
     <p id="suMsg" style="text-align: center; margin-top: 15px; font-weight: bold;"></p>
   </div>
@@ -347,7 +347,11 @@
         });
     } else {
         isA = false;
-        document.getElementById("admStatus").innerHTML = `<button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>`;
+        // Refacem ambele butoane la deconectare
+        document.getElementById("admStatus").innerHTML = `
+            <button class="btn btn-success" onclick="openSignUpModal()" style="margin-right: 10px;">📝 Înregistrare</button>
+            <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>
+        `;
         document.getElementById("admP").style.display = "none";
         document.getElementById("admSel").style.display = "none";
         document.getElementById("uAuth").style.display = "block";
@@ -694,4 +698,3 @@ function resetPass(email) {
 </script>
 </body>
 </html>
-
