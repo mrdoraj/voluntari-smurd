@@ -546,7 +546,23 @@ function rVol() {
 
   function delV(id) { if(confirm("Ștergi voluntarul?")) db.ref('volunteers/'+id).remove(); }
   function tglM(v) { db.ref('settings/maintenance').set(v); }
-
+function resetPass(email) {
+    if (!email) {
+      alert("⚠️ Acest voluntar nu are o adresă de email salvată în baza de date. Nu se poate trimite linkul de resetare.");
+      return;
+    }
+    
+    if (confirm("Trimiteți un email pentru resetarea parolei către: " + email + "?")) {
+      auth.sendPasswordResetEmail(email)
+        .then(() => {
+          alert("✅ Emailul de resetare a fost trimis cu succes către " + email);
+        })
+        .catch((error) => {
+          alert("❌ Eroare la trimitere: " + error.message);
+        });
+    }
+  }
+  
   // --- UTILITARE ---
   function searchMyStats(p) {
     const today = new Date().setHours(0,0,0,0);
@@ -607,4 +623,5 @@ function rVol() {
 </script>
 </body>
 </html>
+
 
