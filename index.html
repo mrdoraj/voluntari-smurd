@@ -518,10 +518,22 @@
     document.getElementById("bIn").value = "";
   }
 
-  function rVol() {
+function rVol() {
     const t = document.getElementById("vTab"), s = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = "";
     vols.filter(v => v.name.toLowerCase().includes(s) || v.id.includes(s)).forEach(v => {
-        t.innerHTML += `<tr><td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td><td>${v.name}</td><td>${v.phone}</td><td style="font-size:0.6rem;">${v.id}</td><td><button onclick="delV('${v.id}')">❌</button></td></tr>`;
+        // Verificăm dacă voluntarul are email salvat (pentru cei adăugați manual s-ar putea să lipsească)
+        const emailParam = v.email ? `'${v.email}'` : `null`;
+        
+        t.innerHTML += `<tr>
+            <td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td>
+            <td>${v.name}</td>
+            <td>${v.phone}</td>
+            <td style="font-size:0.6rem;">${v.id}</td>
+            <td>
+                <button onclick="resetPass(${emailParam})" title="Trimite link de resetare parolă pe email" style="cursor:pointer; border:none; background:none; font-size:1.2rem;">📧</button>
+                <button onclick="delV('${v.id}')" title="Șterge voluntar" style="cursor:pointer; border:none; background:none; font-size:1.2rem;">❌</button>
+            </td>
+        </tr>`;
     });
   }
 
@@ -595,3 +607,4 @@
 </script>
 </body>
 </html>
+
