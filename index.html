@@ -121,7 +121,7 @@
     <input type="text" id="suName" placeholder="Nume complet" required>
     <input type="text" id="suPhone" placeholder="Număr de telefon" required>
     <input type="email" id="suEmail" placeholder="Adresă de Email" required>
-    <input type="password" id="suPass" placeholder="Parolă (min. 6 caractere)" required>
+    <input type="password" id="suPass" placeholder="Parolă (min. 8 caractere)" required>
     <button onclick="registerVolunteer()">Trimite Cererea</button>
     <p id="suMsg" style="text-align: center; margin-top: 15px; font-weight: bold;"></p>
   </div>
@@ -465,47 +465,43 @@
     const g = document.getElementById("tGrid"); g.innerHTML = ""; if(!selD) return;
     const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString());
     
-    hrs.forEach((h, i) => {
+    // Tăiem ultima oră (22:00) pentru a crea exact 14 blocuri de intervale
+    hrs.slice(0, -1).forEach((h, i) => {
+      const nextH = hrs[i+1];
       const s = document.createElement("div"); 
       s.className = "time-slot"; 
-      s.innerText = h;
+      // Afișăm clar intervalul pe buton
+      s.innerText = `${h} - ${nextH}`; 
       
       const isTaken = dBs.some(b => h >= b.start && h < b.end);
       
-      // 1. Verificăm mai întâi dacă acest slot este în intervalul selectat curent
       let isActive = false;
       if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) {
           isActive = true;
       }
 
-      // 2. Aplicăm clasele corect, prioritizând vizual starea "active" (albastru)
       if (isActive) {
           s.classList.add("active");
-          // Dacă este un overlap de Admin, îi lăsăm doar chenarul de avertizare
-          if (isTaken && isA) {
-              s.style.border = "2px dashed #f59e0b";
-          }
+          if (isTaken && isA) s.style.border = "2px dashed #f59e0b";
       } else {
-          if (isTaken) {
-              isA ? s.classList.add("overlap-admin") : s.classList.add("taken");
-          }
+          if (isTaken) isA ? s.classList.add("overlap-admin") : s.classList.add("taken");
       }
       
       s.onclick = () => {
-          if(isTaken && !isA) return; // Blochează voluntarii normali
+          if(isTaken && !isA) return;
           
           if(selS===null || (selS!==null && selE!==null)) { 
               selS=i; selE=null; 
           } else {
               const min = Math.min(selS, i), max = Math.max(selS, i);
-              // Verificăm dacă există o suprapunere pe intervalul ales de un voluntar
               if(dBs.some(b => hrs.indexOf(b.start) < max && (b.end==="22:00" ? 22 : hrs.indexOf(b.end)) > min) && !isA) {
                   return alert("Suprapunere detectată în intervalul selectat!");
               }
               selE=i;
           }
-          rSlt(); // Re-desenăm grila
-          document.getElementById("cBtn").disabled = (selS===null || selE===null);
+          rSlt();
+          // Permitem confirmarea chiar dacă s-a dat click o singură dată (pe un singur interval de 1 oră)
+          document.getElementById("cBtn").disabled = (selS===null);
       };
       
       g.appendChild(s);
@@ -534,7 +530,8 @@
   }
 
   function execSave(n, p, targetUid) {
-    const min = Math.min(selS, selE), max = Math.max(selS, selE);
+    const effectiveE = selE !== null ? selE : selS;
+    const min = Math.min(selS, effectiveE), max = Math.max(selS, effectiveE);
     const shiftDate = new Date(selD);
     // Generăm o cheie de tipul "2026_03" pentru luna respectivă
     const monthKey = `${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
