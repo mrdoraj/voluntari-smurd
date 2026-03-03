@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v7.0 - UID Security Enabled</title>
+  <title>SMURD Programări voluntari v7.0</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -70,7 +70,6 @@
       .p-header { display: grid; grid-template-columns: repeat(7, 1fr); font-weight: bold; text-align: center; background: #e2e8f0 !important; border: 2px solid #000; border-bottom: none; padding: 8px 0; }
       
       .p-entry { margin-bottom: 5px; line-height: 1.2; border-bottom: 1px dotted #ccc; padding-bottom: 3px; }
-      .p-entry-phone { font-size: 9.5px; color: #475569; display: block; }
     }
 
     /* --- STILURI MODAL SIGN UP --- */
@@ -140,13 +139,9 @@
   <aside>
     <div id="maintBar">⚠️ SISTEM ÎN MENTENANȚĂ</div>
     
-    <div class="card" id="uAuth">
+	<div class="card" id="uAuth">
       <h3>🔑 Stare Identificare</h3>
       <div id="authMsg">Vă rugăm să vă autentificați pentru a programa.</div>
-      <div id="myUidBox" style="display:none;">
-          <p style="font-size:0.8rem; color:#64748b; margin-top:10px;">Dacă nu ai acces, trimite acest ID administratorului:</p>
-          <div class="uid-copy-box" id="displayUid"></div>
-      </div>
       <div id="myStats"></div>
     </div>
 
@@ -214,8 +209,11 @@
         </div>
       </div>
 
-      <div class="card">
+		<div class="card">
         <h3>📑 Audit Programări</h3>
+        
+        <input type="text" id="bSearch" placeholder="Caută după voluntar, admin sau dată..." oninput="rBTab()">
+        
         <div id="bMultiBar" class="multi-del-bar">
             <span id="bSelCount">0 selectați</span>
             <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selectați</button>
@@ -224,7 +222,11 @@
             <thead>
                 <tr>
                     <th style="width:30px;"><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
-                    <th>Voluntar</th><th>Data</th><th>Interval</th><th>Tip User</th>
+                    <th>Voluntar</th>
+                    <th>Data Turei</th>
+                    <th>Interval</th>
+                    <th>Adăugat de</th>
+                    <th>Creat la (Timestamp)</th>
                 </tr>
             </thead>
             <tbody id="bTab"></tbody>
@@ -333,8 +335,6 @@
   // --- LOGICA DE ACCES (UID-BASED) ---
   auth.onAuthStateChanged(u => {
     if(u) {
-        document.getElementById("displayUid").innerText = u.uid;
-        document.getElementById("myUidBox").style.display = "block";
         
         // Verificăm dacă are Custom Claim de admin
         u.getIdTokenResult().then(idTokenResult => {
@@ -364,7 +364,7 @@
         document.getElementById("admP").style.display = "none";
         document.getElementById("admSel").style.display = "none";
         document.getElementById("uAuth").style.display = "block";
-        document.getElementById("myUidBox").style.display = "none";
+
         document.getElementById("authMsg").innerHTML = "Vă rugăm să vă autentificați.";
         lk(true);
         rCal();
@@ -541,21 +541,31 @@
   function execSave(n, p, targetUid) {
     const effectiveE = selE !== null ? selE : selS;
     const min = Math.min(selS, effectiveE), max = Math.max(selS, effectiveE);
+    
+    // Generăm cheia pentru contorul lunar
     const shiftDate = new Date(selD);
-    // Generăm o cheie de tipul "2026_03" pentru luna respectivă
     const monthKey = `${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
     
     const newBookingKey = db.ref('bookings').push().key;
     const updates = {};
     
+    // --- MODIFICAREA ESTE AICI (Aflăm email-ul adminului) ---
+    const currentUserInfo = (isA && auth.currentUser) ? `Admin (${auth.currentUser.email})` : "Voluntar";
+    // ---------------------------------------------------------
+    
     // 1. Salvăm datele programării
     updates['/bookings/' + newBookingKey] = { 
-        name: n, phone: p, uid: targetUid, date: selD.toISOString(), 
-        start: hrs[min], end: hrs[max+1] || "22:00", 
-        auditUser: isA ? "Admin" : "Voluntar", auditTime: new Date().toLocaleString() 
+        name: n, 
+        phone: p, 
+        uid: targetUid, 
+        date: selD.toISOString(), 
+        start: hrs[min], 
+        end: hrs[max+1] || "22:00", 
+        auditUser: currentUserInfo,                     // <--- Salvăm email-ul aici
+        auditTime: new Date().toLocaleString('ro-RO')   // <--- Format de timp românesc
     };
 
-    // 2. Incrementăm contorul lunar al persoanei programate
+    // 2. Incrementăm contorul lunar al persoanei programate (LĂSAT INTACT)
     updates[`/shift_counts/${targetUid}/${monthKey}`] = firebase.database.ServerValue.increment(1);
 
     db.ref().update(updates).then(() => { 
@@ -598,10 +608,47 @@ function rVol() {
     });
   }
 
-  function rBTab() {
-    const auditBody = document.getElementById("bTab"); auditBody.innerHTML = "";
-    bks.sort((a,b)=>new Date(b.auditTime)-new Date(a.auditTime)).slice(0, 50).forEach(b => {
-        auditBody.innerHTML += `<tr><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td><td>${b.auditUser}</td></tr>`;
+	function rBTab() {
+    const auditBody = document.getElementById("bTab"); 
+    
+    // Verificăm dacă există bara de căutare și îi luăm textul
+    const searchInput = document.getElementById("bSearch");
+    const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
+    
+    auditBody.innerHTML = "";
+
+    // 1. Filtrăm lista de programări (bks) pe baza textului căutat
+    let filteredBks = bks;
+    if (searchTerm) {
+        filteredBks = bks.filter(b => {
+            const nameMatch = (b.name || "").toLowerCase().includes(searchTerm);
+            const userMatch = (b.auditUser || "").toLowerCase().includes(searchTerm);
+            const dateMatch = new Date(b.date).toLocaleDateString('ro-RO').includes(searchTerm);
+            return nameMatch || userMatch || dateMatch;
+        });
+    }
+
+    // 2. Sortăm descrescător (cele mai noi primele), tăiem la 50 și le afișăm
+    filteredBks.sort((a,b) => new Date(b.auditTime || 0) - new Date(a.auditTime || 0)).slice(0, 50).forEach(b => {
+        
+        // Colorăm diferit Adminul față de Voluntar (pentru un aspect vizual plăcut)
+        let aUser = b.auditUser || "Admin (Vechi)";
+        let userStyle = aUser.includes('Admin') 
+            ? 'background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;' 
+            : 'background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;';
+        
+        // Dacă programarea e veche și nu are timestamp, punem o liniuță
+        let aTime = b.auditTime ? b.auditTime : "-";
+
+        // Construim rândul din tabel (păstrând exact logica ta pentru checkbox-uri)
+        auditBody.innerHTML += `<tr>
+            <td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td>
+            <td><b>${b.name}</b></td>
+            <td>${new Date(b.date).toLocaleDateString('ro-RO')}</td>
+            <td>${b.start} - ${b.end}</td>
+            <td><span style="${userStyle}">${aUser}</span></td>
+            <td style="font-size: 0.8rem; color: #64748b;">${aTime}</td>
+        </tr>`;
     });
   }
 
