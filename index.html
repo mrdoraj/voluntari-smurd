@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări v6.2.7 - ADMIN OVERLAP OK</title>
+  <title>SMURD Programări v7.0 - UID Security Enabled</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -51,6 +51,8 @@
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
 
+    .uid-copy-box { background: #f1f5f9; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; border: 1px dashed #cbd5e1; margin-top: 10px; word-break: break-all; }
+
     #printArea { display: none; font-family: sans-serif; color: black; }
     @media print {
       .no-print { display: none !important; }
@@ -68,17 +70,17 @@
 <header class="header no-print">
   <div style="font-weight:bold; font-size:1.2rem;">🚑 Programări voluntari SMURD</div>
   <div id="admStatus">
-    <button class="btn btn-primary" onclick="openLogin()">🔓 Login Admin</button>
+    <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>
   </div>
 </header>
 
 <div id="loginBox" style="display:none;" class="no-print">
     <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center;">
         <div class="card" style="width:300px;">
-            <h3>Acces Admin</h3>
+            <h3>Acces Cont</h3>
             <input type="email" id="admEmail" placeholder="Email">
             <input type="password" id="admPass" placeholder="Parolă">
-            <button class="btn btn-primary" style="width:100%;" onclick="doAuth()">Autentificare</button>
+            <button class="btn btn-primary" style="width:100%;" onclick="doAuth()">Login</button>
             <button class="btn btn-outline" style="width:100%; margin-top:5px;" onclick="closeLogin()">Anulează</button>
         </div>
     </div>
@@ -89,9 +91,13 @@
     <div id="maintBar">⚠️ SISTEM ÎN MENTENANȚĂ</div>
     
     <div class="card" id="uAuth">
-      <h3>🔑 Identificare</h3>
-      <input type="text" id="pAuth" placeholder="Introduceți datele de identificare.." oninput="vPh()">
-      <div id="authMsg" style="margin-top:10px; font-weight:bold;"></div>
+      <h3>🔑 Stare Identificare</h3>
+      <div id="authMsg">Vă rugăm să vă autentificați pentru a programa.</div>
+      <div id="myUidBox" style="display:none;">
+          <p style="font-size:0.8rem; color:#64748b; margin-top:10px;">Dacă nu ai acces, trimite acest ID administratorului:</p>
+          <div class="uid-copy-box" id="displayUid"></div>
+      </div>
+      <div id="myStats"></div>
     </div>
 
     <div class="card" id="admSel" style="display:none;">
@@ -123,16 +129,18 @@
         <h3>⚙️ Panou Administrator</h3>
         <label><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Activează Mentenanță</label>
         <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
-            <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna (Format Calendar)</button>
+            <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
             <button class="btn btn-outline" onclick="exportData()">📥 Backup JSON</button>
-            <button class="btn btn-danger" onclick="admOut()">🔒 Ieșire</button>
+            <button class="btn btn-danger" onclick="admOut()">🔒 Deconectare</button>
         </div>
       </div>
 
       <div class="card">
-        <h3>📋 Gestiune Voluntari (Whitelist)</h3>
-        <textarea id="bIn" placeholder="Nume, Telefon (ex: Popescu Ion, 0722123456)"></textarea>
-        <button class="btn btn-primary" onclick="impV()">Adaugă în listă</button>
+        <h3>📋 Whitelist Voluntari (Gestiune UID)</h3>
+        <p style="font-size:0.75rem; color:#64748b;">Format: Nume, Telefon, UID (unul pe rând sau mai multe)</p>
+        <textarea id="bIn" placeholder="Ex: Popescu Ion, 0722123456, aBc123Xyz..."></textarea>
+        <button class="btn btn-primary" onclick="impV()">Adaugă Voluntar</button>
+        
         <div style="margin-top:15px;">
             <input type="text" id="vSearch" placeholder="Caută voluntar..." oninput="rVol()">
             <div id="vMultiBar" class="multi-del-bar">
@@ -143,7 +151,7 @@
                 <thead>
                     <tr>
                         <th style="width:30px;"><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
-                        <th>Nume</th><th>Telefon</th><th>Acțiuni</th>
+                        <th>Nume</th><th>Telefon</th><th>UID (Cheie)</th><th>Acțiuni</th>
                     </tr>
                 </thead>
                 <tbody id="vTab"></tbody>
@@ -152,7 +160,7 @@
       </div>
 
       <div class="card">
-        <h3>📑 Audit Programări (Ultimele 50)</h3>
+        <h3>📑 Audit Programări</h3>
         <div id="bMultiBar" class="multi-del-bar">
             <span id="bSelCount">0 selectați</span>
             <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selectați</button>
@@ -161,7 +169,7 @@
             <thead>
                 <tr>
                     <th style="width:30px;"><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
-                    <th>Voluntar</th><th>Data</th><th>Interval</th><th>User Audit</th>
+                    <th>Voluntar</th><th>Data</th><th>Interval</th><th>Tip User</th>
                 </tr>
             </thead>
             <tbody id="bTab"></tbody>
@@ -180,6 +188,7 @@
 </div>
 
 <script>
+  // CONFIGURARE FIREBASE
   const firebaseConfig = {
     apiKey: "AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
     authDomain: "rezervari-smurd.firebaseapp.com",
@@ -197,6 +206,7 @@
   let bks = [], vols = [], isA = false, isM = false;
   const hrs = []; for(let i=8; i<=22; i++) hrs.push(`${String(i).padStart(2,'0')}:00`);
 
+  // --- AUTENTIFICARE ---
   function openLogin() { document.getElementById("loginBox").style.display = "block"; }
   function closeLogin() { document.getElementById("loginBox").style.display = "none"; }
   function doAuth() {
@@ -205,6 +215,55 @@
   }
   function admOut() { auth.signOut().then(() => location.reload()); }
 
+  // --- LOGICA DE ACCES (UID-BASED) ---
+  auth.onAuthStateChanged(u => {
+    if(u) {
+        document.getElementById("displayUid").innerText = u.uid;
+        document.getElementById("myUidBox").style.display = "block";
+        
+        // Verificăm dacă are Custom Claim de admin
+        u.getIdTokenResult().then(idTokenResult => {
+            isA = !!idTokenResult.claims.admin;
+            
+            if(isA) {
+                document.getElementById("admStatus").innerHTML = `<b style="color:green">Admin: ${u.email}</b>`;
+                document.getElementById("admP").style.display = "block";
+                document.getElementById("admSel").style.display = "block";
+                document.getElementById("uAuth").style.display = "none";
+                lk(false);
+            } else {
+                checkVolunteerPresence(u.uid);
+            }
+            rCal(); rVol();
+        });
+    } else {
+        isA = false;
+        document.getElementById("admStatus").innerHTML = `<button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>`;
+        document.getElementById("admP").style.display = "none";
+        document.getElementById("admSel").style.display = "none";
+        document.getElementById("uAuth").style.display = "block";
+        document.getElementById("myUidBox").style.display = "none";
+        document.getElementById("authMsg").innerHTML = "Vă rugăm să vă autentificați.";
+        lk(true);
+        rCal();
+    }
+  });
+
+  function checkVolunteerPresence(uid) {
+    db.ref('volunteers/' + uid).once('value', s => {
+        if(s.exists()) {
+            const v = s.val();
+            document.getElementById("authMsg").innerHTML = `✅ Bun venit, <b>${v.name}</b>`;
+            lk(false);
+            searchMyStats(v.phone);
+        } else {
+            document.getElementById("authMsg").innerHTML = `<span style="color:red">❌ UID neautorizat în listă.</span>`;
+            lk(true);
+        }
+    });
+  }
+
+  // --- CALENDAR & PROGRAMARE ---
   function lk(b) {
     if(isA) b = false;
     const c = document.getElementById("cBox"), t = document.getElementById("tBox");
@@ -213,14 +272,11 @@
 
   function chM(o) {
     const targetDate = new Date(curD.getFullYear(), curD.getMonth() + o, 1);
-    const today = new Date();
-    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     if (!isA) {
-        if (targetDate < currentMonth || targetDate > nextMonth) {
-            alert("Poți vizualiza doar luna curentă și luna viitoare.");
-            return;
-        }
+        const today = new Date();
+        const min = new Date(today.getFullYear(), today.getMonth(), 1);
+        const max = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        if (targetDate < min || targetDate > max) return alert("Poți vedea doar luna curentă și următoare.");
     }
     curD.setMonth(curD.getMonth() + o);
     rCal();
@@ -234,9 +290,8 @@
       const d = new Date(y, m, i), btn = document.createElement("button"); 
       btn.className = "cal-day"; btn.innerText = i;
       const dBs = bks.filter(b => new Date(b.date).toDateString() === d.toDateString());
-      if(d < new Date().setHours(0,0,0,0) && !isA) {
-          btn.classList.add("day-past");
-      } else {
+      if(d < new Date().setHours(0,0,0,0) && !isA) { btn.classList.add("day-past"); }
+      else {
           if (dBs.length === 0) btn.classList.add("day-available");
           else if (dBs.length >= 3) btn.classList.add("day-full");
           else btn.classList.add("day-partial");
@@ -253,22 +308,14 @@
     hrs.forEach((h, i) => {
       const s = document.createElement("div"); s.className = "time-slot"; s.innerText = h;
       const isTaken = dBs.some(b => h >= b.start && h < b.end);
-      
-      // Dacă e ocupat, punem clasa de vizualizare 'taken'
-      if(isTaken) { 
-          if(isA) s.classList.add("overlap-admin"); // Admin vede bordura galbena
-          else s.classList.add("taken"); // User vede rosu
-      }
-
+      if(isTaken) isA ? s.classList.add("overlap-admin") : s.classList.add("taken");
       if((selS!==null && i===selS) || (selE!==null && i===selE) || (selS!==null && selE!==null && i > Math.min(selS, selE) && i < Math.max(selS, selE))) s.classList.add("active");
       
       s.onclick = () => {
-          if(isTaken && !isA) return; // Blocăm utilizatorul, dar lăsăm adminul
-          
+          if(isTaken && !isA) return;
           if(selS===null || (selS!==null && selE!==null)) { selS=i; selE=null; }
           else {
             const min = Math.min(selS, i), max = Math.max(selS, i);
-            // Validarea suprapunerii: oprim utilizatorul, trecem adminul
             if(dBs.some(b => hrs.indexOf(b.start) < max && (b.end==="22:00"?22:hrs.indexOf(b.end)) > min) && !isA) return alert("Suprapunere detectată!");
             selE=i;
           }
@@ -279,22 +326,84 @@
   }
 
   function saveB() {
-    let n, p; const min = Math.min(selS, selE), max = Math.max(selS, selE);
-    if(isA) { 
-        const s = document.getElementById("vSel"); p = s.value; n = s.options[s.selectedIndex].text; 
-    } else { 
-        p = document.getElementById("pAuth").value.trim(); 
-        const vol = vols.find(u=>u.phone===p); if(!vol) return; n = vol.name;
-        const countThisMonth = bks.filter(b => {
-            const bd = new Date(b.date);
-            return b.phone === p && bd.getMonth() === selD.getMonth() && bd.getFullYear() === selD.getFullYear();
-        }).length;
-        if (countThisMonth >= 2) { alert("Ai atins limita de 2 programări pe lună!"); return; }
+    const user = auth.currentUser;
+    if(!user) return;
+
+    if(isA) {
+        const s = document.getElementById("vSel");
+        execSave(s.options[s.selectedIndex].text, s.value, "Admin-Action");
+    } else {
+        db.ref('volunteers/' + user.uid).once('value', s => {
+            const v = s.val();
+            const monthlyBks = bks.filter(b => b.phone === v.phone && new Date(b.date).getMonth() === selD.getMonth()).length;
+            if(monthlyBks >= 2) return alert("Maxim 2 programări pe lună!");
+            execSave(v.name, v.phone, user.uid);
+        });
     }
+  }
+
+  function execSave(n, p, auditId) {
+    const min = Math.min(selS, selE), max = Math.max(selS, selE);
     db.ref('bookings').push({ 
-        name:n, phone:p, date:selD.toISOString(), start:hrs[min], end:hrs[max+1]||"22:00", 
+        name:n, phone:p, uid: auditId, date:selD.toISOString(), 
+        start:hrs[min], end:hrs[max+1]||"22:00", 
         auditUser:isA?"Admin":"Voluntar", auditTime:new Date().toLocaleString() 
-    }).then(() => { selS=null; selE=null; rSlt(); alert("Programare confirmată!"); });
+    }).then(() => { selS=null; selE=null; rSlt(); alert("Programare realizată!"); });
+  }
+
+  // --- ADMIN & WHITELIST ---
+  function impV() {
+    const val = document.getElementById("bIn").value.split('\n');
+    val.forEach(line => {
+        const parts = line.split(',');
+        if(parts.length === 3) {
+            const name = parts[0].trim(), phone = parts[1].trim(), uid = parts[2].trim();
+            db.ref('volunteers/' + uid).set({ name, phone });
+        }
+    });
+    document.getElementById("bIn").value = "";
+  }
+
+  function rVol() {
+    const t = document.getElementById("vTab"), s = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = "";
+    vols.filter(v => v.name.toLowerCase().includes(s) || v.id.includes(s)).forEach(v => {
+        t.innerHTML += `<tr><td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td><td>${v.name}</td><td>${v.phone}</td><td style="font-size:0.6rem;">${v.id}</td><td><button onclick="delV('${v.id}')">❌</button></td></tr>`;
+    });
+  }
+
+  function rBTab() {
+    const auditBody = document.getElementById("bTab"); auditBody.innerHTML = "";
+    bks.sort((a,b)=>new Date(b.auditTime)-new Date(a.auditTime)).slice(0, 50).forEach(b => {
+        auditBody.innerHTML += `<tr><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td><td>${b.auditUser}</td></tr>`;
+    });
+  }
+
+  function delV(id) { if(confirm("Ștergi voluntarul?")) db.ref('volunteers/'+id).remove(); }
+  function tglM(v) { db.ref('settings/maintenance').set(v); }
+
+  // --- UTILITARE ---
+  function searchMyStats(p) {
+    const today = new Date().setHours(0,0,0,0);
+    const my = bks.filter(b => b.phone === p && new Date(b.date) >= today);
+    document.getElementById("myStats").innerHTML = my.length > 0 ? `<p style="font-size:0.8rem;">Ai <b>${my.length}</b> programări viitoare.</p>` : "";
+  }
+
+  function updSelCount(cls, barId, txtId) {
+    const sel = document.querySelectorAll(`.${cls}:checked`).length;
+    document.getElementById(barId).style.display = sel > 0 ? "flex" : "none";
+    document.getElementById(txtId).innerText = `${sel} selectați`;
+  }
+
+  function toggleAll(mId, cCls, bId, tId) {
+    const isChecked = document.getElementById(mId).checked;
+    document.querySelectorAll(`.${cCls}`).forEach(cb => cb.checked = isChecked);
+    updSelCount(cCls, bId, tId);
+  }
+
+  function bulkDel(path, cls) {
+    if(!confirm("Ștergi înregistrările selectate?")) return;
+    const upds = {}; document.querySelectorAll(`.${cls}:checked`).forEach(cb => { upds[`/${path}/${cb.value}`] = null; });
+    db.ref().update(upds);
   }
 
   function prepPrint() {
@@ -314,56 +423,10 @@
     window.print();
   }
 
-  function searchMyB(p) {
-    const today = new Date().setHours(0,0,0,0);
-    const my = bks.filter(b => b.phone === p && new Date(b.date) >= today).sort((a,b) => new Date(a.date) - new Date(b.date));
-    if(my.length > 0) {
-        let h = "<div style='font-size:0.8rem; margin-top:10px; background:#f1f5f9; padding:10px; border-radius:8px;'><b>Programările tale viitoare:</b><ul style='padding-left:15px; margin:5px 0;'>";
-        my.forEach(b => h += `<li>${new Date(b.date).toLocaleDateString('ro-RO')}: ${b.start}-${b.end}</li>`);
-        document.getElementById("authMsg").innerHTML += h + "</ul></div>";
-    }
-  }
+  function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup.json'; a.click(); }); }
 
-  function vPh() {
-    if(isA) return; if(isM) return lk(true);
-    const p = document.getElementById("pAuth").value.trim(), vol = vols.find(u => u.phone === p);
-    if(vol) { lk(false); document.getElementById("authMsg").innerHTML = "✅ Bun venit, " + vol.name; searchMyB(p); }
-    else { lk(true); document.getElementById("authMsg").innerHTML = p===""?"":"❌ Număr neînregistrat!"; }
-  }
-
-  function toggleAll(mId, cCls, bId, tId) {
-    const isChecked = document.getElementById(mId).checked;
-    document.querySelectorAll(`.${cCls}`).forEach(cb => cb.checked = isChecked);
-    updSelCount(cCls, bId, tId);
-  }
-  function updSelCount(cls, barId, txtId) {
-    const total = document.querySelectorAll(`.${cls}`).length;
-    const sel = document.querySelectorAll(`.${cls}:checked`).length;
-    const masterId = cls === 'vCheck' ? 'vMaster' : 'bMaster';
-    if(document.getElementById(masterId)) {
-        document.getElementById(masterId).checked = (sel === total && total > 0);
-        document.getElementById(masterId).indeterminate = (sel > 0 && sel < total);
-    }
-    document.getElementById(barId).style.display = sel > 0 ? "flex" : "none";
-    document.getElementById(txtId).innerText = `${sel} selectați`;
-  }
-  function bulkDel(path, cls) {
-    const sel = document.querySelectorAll(`.${cls}:checked`);
-    if(!confirm(`Ștergi definitiv ${sel.length} înregistrări?`)) return;
-    const upds = {}; sel.forEach(cb => { upds[`/${path}/${cb.value}`] = null; });
-    db.ref().update(upds).then(() => { alert("Ștergere reușită!"); });
-  }
-
-  db.ref('settings/maintenance').on('value', s => { isM = s.val(); document.getElementById("maintBar").style.display = isM?"block":"none"; if(!isA) vPh(); });
-  auth.onAuthStateChanged(u => {
-    isA = !!u;
-    document.getElementById("admP").style.display = isA ? "block" : "none";
-    document.getElementById("admSel").style.display = isA ? "block" : "none";
-    document.getElementById("uAuth").style.display = isA ? "none" : "block";
-    document.getElementById("admStatus").innerHTML = isA ? `<b style="color:green">Admin: ${u.email}</b>` : `<button class="btn btn-primary" onclick="openLogin()">🔓 Login Admin</button>`;
-    isA ? lk(false) : vPh();
-    rCal(); rVol();
-  });
+  // LISTENERI BAZĂ DE DATE
+  db.ref('settings/maintenance').on('value', s => { isM = s.val(); document.getElementById("maintBar").style.display = isM?"block":"none"; if(!isA && isM) lk(true); });
   db.ref('bookings').on('value', s => { bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; rCal(); rBTab(); if(selD) rSlt(); });
   db.ref('volunteers').on('value', s => { 
     vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; 
@@ -371,24 +434,6 @@
     document.getElementById("vSel").innerHTML = vols.sort((a,b)=>a.name.localeCompare(b.name)).map(v => `<option value="${v.phone}">${v.name}</option>`).join('');
   });
 
-  function rVol() {
-    const t = document.getElementById("vTab"), s = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = "";
-    vols.filter(v => v.name.toLowerCase().includes(s) || v.phone.includes(s)).forEach(v => {
-        t.innerHTML += `<tr><td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td><td>${v.name}</td><td>${v.phone}</td><td><button onclick="delV('${v.id}')">❌</button></td></tr>`;
-    });
-  }
-  function rBTab() {
-    const bodies = document.querySelectorAll("tbody"); const auditBody = bodies[bodies.length - 1]; auditBody.innerHTML = "";
-    bks.sort((a,b)=>new Date(b.auditTime)-new Date(a.auditTime)).slice(0, 50).forEach(b => {
-        auditBody.innerHTML += `<tr><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td><td>${b.name}</td><td>${new Date(b.date).toLocaleDateString()}</td><td>${b.start}-${b.end}</td><td>${b.auditUser}</td></tr>`;
-    });
-  }
-  function impV() { const val = document.getElementById("bIn").value.split('\n'); val.forEach(l => { const p = l.split(','); if(p.length===2) db.ref('volunteers').push({name:p[0].trim(), phone:p[1].trim()}); }); document.getElementById("bIn").value=""; }
-  function delV(id) { if(confirm("Ștergi?")) db.ref('volunteers/'+id).remove(); }
-  function tglM(v) { db.ref('settings/maintenance').set(v); }
-  function exportData() { db.ref().once('value', s => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val())], {type:'application/json'})); a.download = 'backup.json'; a.click(); }); }
-
-  rCal();
 </script>
 </body>
 </html>
