@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări voluntari v7.0</title>
+  <title>SMURD Programări voluntari</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -820,22 +820,18 @@ function prepPrint() {
     window.print();
   }
 
-	async function exportData() { 
+async function exportData() { 
     try {
-        // Citim nodurile individual pentru a respecta regulile de securitate Firebase
-        const [bSnap, vSnap, sSnap, cSnap] = await Promise.all([
+        // Citim doar nodurile la care Adminul are acces garantat
+        const [bSnap, vSnap] = await Promise.all([
             db.ref('bookings').once('value'),
-            db.ref('volunteers').once('value'),
-            db.ref('settings').once('value'),
-            db.ref('shift_counts').once('value')
+            db.ref('volunteers').once('value')
         ]);
 
-        // Reconstruim structura bazei de date
+        // Reconstruim structura bazei de date doar cu datele vitale
         const data = {
             bookings: bSnap.val() || {},
-            volunteers: vSnap.val() || {},
-            settings: sSnap.val() || {},
-            shift_counts: cSnap.val() || {}
+            volunteers: vSnap.val() || {}
         };
 
         const dateStr = new Date().toISOString().split('T')[0];
