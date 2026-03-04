@@ -820,26 +820,40 @@ function prepPrint() {
     window.print();
   }
 
-	function exportData() { 
-    db.ref().once('value', s => { 
-        const data = s.val();
-        // Formatăm data curentă pentru numele fișierului (ex: 2026-03-04)
+	async function exportData() { 
+    try {
+        // Citim nodurile individual pentru a respecta regulile de securitate Firebase
+        const [bSnap, vSnap, sSnap, cSnap] = await Promise.all([
+            db.ref('bookings').once('value'),
+            db.ref('volunteers').once('value'),
+            db.ref('settings').once('value'),
+            db.ref('shift_counts').once('value')
+        ]);
+
+        // Reconstruim structura bazei de date
+        const data = {
+            bookings: bSnap.val() || {},
+            volunteers: vSnap.val() || {},
+            settings: sSnap.val() || {},
+            shift_counts: cSnap.val() || {}
+        };
+
         const dateStr = new Date().toISOString().split('T')[0];
         const fileName = `backup_SMURD_${dateStr}.json`;
         
-        // Adăugăm "null, 2" pentru a formata JSON-ul frumos
         const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}); 
-        
         const a = document.createElement('a'); 
         a.href = URL.createObjectURL(blob); 
         a.download = fileName; 
         
-        // Trucul pentru browsere moderne: adăugăm temporar linkul în pagină
         document.body.appendChild(a); 
         a.click(); 
-        document.body.removeChild(a); // Curățăm după noi
-    }).catch(err => alert("Eroare la descărcare: " + err.message)); 
+        document.body.removeChild(a); 
+    } catch(err) {
+        alert("Eroare la descărcare: " + err.message);
+    }
 }
+
 	function exportCSV() {
     if (bks.length === 0) return alert("Nu există programări pentru export.");
     
