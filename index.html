@@ -206,14 +206,11 @@
         <div id="pendingVols"></div>
       </div>
 
-<div class="card">
-        <h3>📋 Whitelist Voluntari (Gestiune UID)</h3>
-        <p style="font-size:0.75rem; color:#64748b;">Format: Nume, Telefon, UID (unul pe rând sau mai multe)</p>
-        <textarea id="bIn" placeholder="Ex: Popescu Ion, 0722123456, aBc123Xyz..."></textarea>
-        <button class="btn btn-primary" onclick="impV()">Adaugă Voluntar</button>
-        
-        <div style="margin-top:15px;">
-            <input type="text" id="vSearch" placeholder="Caută voluntar..." oninput="rVol()">
+
+		<div class="card">
+        <h3>📋 Gestiune Voluntari</h3>
+        <div style="margin-top:5px;">
+            <input type="text" id="vSearch" placeholder="Caută voluntar după nume sau email..." oninput="rVol()">
             <div id="vMultiBar" class="multi-del-bar">
                 <span id="vSelCount">0 selectați</span>
                 <button class="btn btn-danger" onclick="bulkDel('volunteers', 'vCheck')">Șterge Selectați</button>
@@ -224,7 +221,11 @@
                     <thead>
                         <tr>
                             <th style="width:30px;"><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
-                            <th>Nume</th><th>Telefon</th><th>UID (Cheie)</th><th>Acțiuni</th>
+                            <th>Nume</th>
+                            <th>Telefon</th>
+                            <th>UID (Cheie)</th>
+                            <th>Email</th>
+                            <th>Acțiuni</th>
                         </tr>
                     </thead>
                     <tbody id="vTab"></tbody>
@@ -605,31 +606,42 @@
     });
   }
 
-  // --- ADMIN & WHITELIST ---
-  function impV() {
-    const val = document.getElementById("bIn").value.split('\n');
-    val.forEach(line => {
-        const parts = line.split(',');
-        if(parts.length === 3) {
-            const name = parts[0].trim(), phone = parts[1].trim(), uid = parts[2].trim();
-            db.ref('volunteers/' + uid).set({ name, phone, status: "approved" }); // Voluntarii importați direct sunt aprobați automat
-        }
-    });
-    document.getElementById("bIn").value = "";
+// --- ADMIN & GESTIUNE VOLUNTARI ---
+  function editV(id, oldName, oldPhone) {
+      const newName = prompt("✏️ Modifică Numele Voluntarului:", oldName);
+      if (newName === null) return; // A apăsat Cancel
+      
+      const newPhone = prompt("📞 Modifică Numărul de Telefon:", oldPhone);
+      if (newPhone === null) return; // A apăsat Cancel
+      
+      if (newName.trim() !== "" && newPhone.trim() !== "") {
+          db.ref('volunteers/' + id).update({
+              name: newName.trim(),
+              phone: newPhone.trim()
+          }).then(() => alert("✅ Datele au fost actualizate cu succes!"))
+            .catch(err => alert("❌ Eroare la actualizare: " + err.message));
+      } else {
+          alert("⚠️ Numele și telefonul nu pot fi lăsate goale!");
+      }
   }
 
 function rVol() {
     const t = document.getElementById("vTab"), s = document.getElementById("vSearch").value.toLowerCase(); t.innerHTML = "";
-    vols.filter(v => v.name.toLowerCase().includes(s) || v.id.includes(s)).forEach(v => {
-        // Verificăm dacă voluntarul are email salvat (pentru cei adăugați manual s-ar putea să lipsească)
+    
+    // Acum putem căuta și după adresa de email
+    vols.filter(v => v.name.toLowerCase().includes(s) || v.id.includes(s) || (v.email && v.email.toLowerCase().includes(s))).forEach(v => {
+        
         const emailParam = v.email ? `'${v.email}'` : `null`;
+        const displayEmail = v.email ? v.email : "<span style='color:#ef4444; font-size:0.8rem;'>Lipsă email</span>";
         
         t.innerHTML += `<tr>
             <td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck', 'vMultiBar', 'vSelCount')"></td>
-            <td>${v.name}</td>
+            <td><b>${v.name}</b></td>
             <td>${v.phone}</td>
-            <td style="font-size:0.6rem;">${v.id}</td>
-            <td>
+            <td style="font-size:0.6rem; color:#64748b;">${v.id}</td>
+            <td style="font-size:0.85rem;">${displayEmail}</td>
+            <td style="min-width: 100px;">
+                <button onclick="editV('${v.id}', '${v.name}', '${v.phone}')" title="Editează datele (Nume, Telefon)" style="cursor:pointer; border:none; background:none; font-size:1.2rem;">✏️</button>
                 <button onclick="resetPass(${emailParam})" title="Trimite link de resetare parolă pe email" style="cursor:pointer; border:none; background:none; font-size:1.2rem;">📧</button>
                 <button onclick="delV('${v.id}')" title="Șterge voluntar" style="cursor:pointer; border:none; background:none; font-size:1.2rem;">❌</button>
             </td>
