@@ -46,14 +46,21 @@
     .locked-overlay { opacity: 0.4; pointer-events: none !important; filter: grayscale(1); }
     #maintBar { display: none; background: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; border-radius: 8px; margin-bottom: 10px; }
 
-    input, select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--gray-200); margin-bottom: 10px; box-sizing: border-box; }
-   /* NOU: Container pentru scroll orizontal pe mobil */
+	input, select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--gray-200); margin-bottom: 10px; box-sizing: border-box; }
+        /* Reparații Tabele pe Mobil */
     .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; }
-    
-    /* MODIFICAT: Forțăm tabelul să aibă o lățime minimă ca să nu se strivească textul */
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 600px; } 
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
+    
+		/* Reparații Așezare Pagina pe Mobil (Portrait) */
+    main, aside { min-width: 0; }
+    @media (max-width: 768px) {
+        .header { flex-direction: column; gap: 10px; padding: 1rem; text-align: center; }
+        #admStatus { display: flex; width: 100%; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        #admStatus .btn { margin: 0 !important; flex: 1; min-width: 140px; }
+        .card { padding: 1rem; }
+    }
 
     .uid-copy-box { background: #f1f5f9; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; border: 1px dashed #cbd5e1; margin-top: 10px; word-break: break-all; }
 
@@ -199,7 +206,7 @@
         <div id="pendingVols"></div>
       </div>
 
-      <div class="card">
+<div class="card">
         <h3>📋 Whitelist Voluntari (Gestiune UID)</h3>
         <p style="font-size:0.75rem; color:#64748b;">Format: Nume, Telefon, UID (unul pe rând sau mai multe)</p>
         <textarea id="bIn" placeholder="Ex: Popescu Ion, 0722123456, aBc123Xyz..."></textarea>
@@ -211,17 +218,37 @@
                 <span id="vSelCount">0 selectați</span>
                 <button class="btn btn-danger" onclick="bulkDel('volunteers', 'vCheck')">Șterge Selectați</button>
             </div>
-            <div class="table-responsive"> <table>
-                <thead>
-                    <tr>
-                        <th style="width:30px;"><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
-                        <th>Nume</th><th>Telefon</th><th>UID (Cheie)</th><th>Acțiuni</th>
-                    </tr>
-                </thead>
-                <tbody id="vTab"></tbody>
-            </table>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:30px;"><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
+                            <th>Nume</th><th>Telefon</th><th>UID (Cheie)</th><th>Acțiuni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vTab"></tbody>
+                </table>
+            </div>
         </div>
-        <div class="table-responsive"> <table>
+      </div>
+
+      <div class="card">
+        <h3>📈 Raport Activitate (Luna Curentă)</h3>
+        <button class="btn btn-primary" onclick="generateReport()">Calculează Orele Voluntarilor</button>
+        <div id="reportArea" style="margin-top:15px; max-height: 250px; overflow-y: auto; overflow-x: auto;"></div>
+      </div>
+
+      <div class="card">
+        <h3>📑 Audit Programări</h3>
+        <input type="text" id="bSearch" placeholder="Caută după voluntar, admin sau dată..." oninput="rBTab()">
+        <div id="bMultiBar" class="multi-del-bar">
+            <span id="bSelCount">0 selectați</span>
+            <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selectați</button>
+        </div>
+        
+        <div class="table-responsive">
+            <table>
                 <thead>
                     <tr>
                         <th style="width:30px;"><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
@@ -235,35 +262,7 @@
                 <tbody id="bTab"></tbody>
             </table>
         </div>
-		<div id="reportArea" style="margin-top:15px; max-height: 250px; overflow-y: auto; overflow-x: auto;"></div>
       </div>
-
-		<div class="card">
-    <h3>📈 Raport Activitate (Luna Curentă)</h3>
-    <button class="btn btn-primary" onclick="generateReport()">Calculează Orele Voluntarilor</button>
-    <div id="reportArea" style="margin-top:15px; max-height: 250px; overflow-y: auto;"></div>
-	</div>
-        <h3>📑 Audit Programări</h3>
-        <input type="text" id="bSearch" placeholder="Caută după voluntar, admin sau dată..." oninput="rBTab()">
-        <div id="bMultiBar" class="multi-del-bar">
-            <span id="bSelCount">0 selectați</span>
-            <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selectați</button>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th style="width:30px;"><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
-                    <th>Voluntar</th>
-                    <th>Data Turei</th>
-                    <th>Interval</th>
-                    <th>Adăugat de</th>
-                    <th>Creat la (Timestamp)</th>
-                </tr>
-            </thead>
-            <tbody id="bTab"></tbody>
-        </table>
-      </div>
-    </div>
   </main>
 </div>
 
@@ -1043,4 +1042,3 @@ function restoreData(event) {
 </script>
 </body>
 </html>
-
