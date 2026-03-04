@@ -989,12 +989,13 @@ function cleanOldData() {
           }
       });
   }
+
 function restoreData(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    if(!confirm("⚠️ ATENȚIE MAJORĂ: Această acțiune va ȘTERGE complet baza de date actuală și o va înlocui cu datele din fișierul selectat! Ai făcut un backup înainte?")) {
-        event.target.value = ''; // Resetăm selecția
+    if(!confirm("⚠️ ATENȚIE MAJORĂ: Această acțiune va înlocui programările și voluntarii cu datele din fișierul selectat! Continuăm?")) {
+        event.target.value = ''; 
         return;
     }
 
@@ -1002,17 +1003,25 @@ function restoreData(event) {
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            db.ref().set(data).then(() => {
+            
+            // Pregătim actualizarea exactă doar pentru nodurile necesare
+            const updates = {};
+            if (data.bookings) updates['/bookings'] = data.bookings;
+            if (data.volunteers) updates['/volunteers'] = data.volunteers;
+
+            // Folosim update() în loc de set() pentru a proteja restul bazei de date
+            db.ref().update(updates).then(() => {
                 alert("✅ Baza de date a fost restaurată cu succes!");
-                location.reload(); // Reîncărcăm pagina automat pentru a aduce noile date
+                location.reload(); 
             }).catch(err => alert("Eroare la restaurare din server: " + err.message));
         } catch(err) {
             alert("❌ Eroare: Fișierul selectat nu este un format JSON valid.");
         }
-        event.target.value = ''; // Resetăm selecția
+        event.target.value = ''; 
     };
     reader.readAsText(file);
 }
+
 </script>
 </body>
 </html>
