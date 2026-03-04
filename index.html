@@ -47,7 +47,11 @@
     #maintBar { display: none; background: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; border-radius: 8px; margin-bottom: 10px; }
 
     input, select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--gray-200); margin-bottom: 10px; box-sizing: border-box; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+   /* NOU: Container pentru scroll orizontal pe mobil */
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; }
+    
+    /* MODIFICAT: Forțăm tabelul să aibă o lățime minimă ca să nu se strivească textul */
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 600px; } 
     th, td { padding: 10px; border-bottom: 1px solid var(--gray-200); text-align: left; }
     th { background: var(--gray-100); }
 
@@ -207,7 +211,7 @@
                 <span id="vSelCount">0 selectați</span>
                 <button class="btn btn-danger" onclick="bulkDel('volunteers', 'vCheck')">Șterge Selectați</button>
             </div>
-            <table>
+            <div class="table-responsive"> <table>
                 <thead>
                     <tr>
                         <th style="width:30px;"><input type="checkbox" id="vMaster" onclick="toggleAll('vMaster', 'vCheck', 'vMultiBar', 'vSelCount')"></th>
@@ -216,10 +220,31 @@
                 </thead>
                 <tbody id="vTab"></tbody>
             </table>
-        </div>
+        </div>```
+		### Pasul 3: Îmbrăcarea tabelului de Audit Programări
+		Fă exact același lucru și pentru tabelul de sub „Audit Programări”:
+		```html
+        <div class="table-responsive"> <table>
+                <thead>
+                    <tr>
+                        <th style="width:30px;"><input type="checkbox" id="bMaster" onclick="toggleAll('bMaster', 'bCheck', 'bMultiBar', 'bSelCount')"></th>
+                        <th>Voluntar</th>
+                        <th>Data Turei</th>
+                        <th>Interval</th>
+                        <th>Adăugat de</th>
+                        <th>Creat la (Timestamp)</th>
+                    </tr>
+                </thead>
+                <tbody id="bTab"></tbody>
+            </table>
+        </div> ```
+
+		### Pasul 4 (Bonus): Tabelul Raport Activitate
+		Pentru cardul „Raport Activitate (Luna Curentă)”, trebuie doar să îi mai adăugăm o mică regulă în interiorul div-ului. Caută linia asta:
+		```html
+		<div id="reportArea" style="margin-top:15px; max-height: 250px; overflow-y: auto; overflow-x: auto;"></div>
       </div>
 
-		<div class="card">
 		<div class="card">
     <h3>📈 Raport Activitate (Luna Curentă)</h3>
     <button class="btn btn-primary" onclick="generateReport()">Calculează Orele Voluntarilor</button>
@@ -1025,3 +1050,4 @@ function restoreData(event) {
 </script>
 </body>
 </html>
+
