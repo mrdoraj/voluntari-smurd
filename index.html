@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări voluntari</title>
+  <title>SMURD Programări voluntari v7.0</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -166,7 +166,7 @@
   <main>
     <div class="card locked-overlay" id="cBox">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3 id="mLab" style="margin:0;">Calendar</h3>
+        <h3 id="mLab" style="margin:0;"></h3>
         <div>
           <button class="btn btn-outline" onclick="chM(-1)">←</button>
           <button class="btn btn-outline" onclick="chM(1)">→</button>
@@ -827,14 +827,18 @@ function prepPrint() {
         const dateStr = new Date().toISOString().split('T')[0];
         const fileName = `backup_SMURD_${dateStr}.json`;
         
-        // Adăugăm "null, 2" pentru a formata JSON-ul frumos (pretty print)
+        // Adăugăm "null, 2" pentru a formata JSON-ul frumos
         const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}); 
         
         const a = document.createElement('a'); 
         a.href = URL.createObjectURL(blob); 
         a.download = fileName; 
+        
+        // Trucul pentru browsere moderne: adăugăm temporar linkul în pagină
+        document.body.appendChild(a); 
         a.click(); 
-    }); 
+        document.body.removeChild(a); // Curățăm după noi
+    }).catch(err => alert("Eroare la descărcare: " + err.message)); 
 }
 	function exportCSV() {
     if (bks.length === 0) return alert("Nu există programări pentru export.");
