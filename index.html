@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SMURD Programări voluntari v7.0</title>
+  <title>SMURD Programări voluntari</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
@@ -183,6 +183,9 @@
             <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
             <button class="btn btn-outline" onclick="exportData()">📥 Backup JSON</button>
 			<button class="btn btn-outline" onclick="exportCSV()">📊 Export CSV (Excel)</button>
+			<input type="file" id="importFile" accept=".json" style="display:none" onchange="restoreData(event)">
+			<button class="btn btn-warning" onclick="document.getElementById('importFile').click()" style="background: var(--warning); color: black;">🔄 Restaurare DB</button>			
+			<button class="btn btn-danger" onclick="cleanOldData()">🗑️ Șterge Date (> 3 luni)</button>
             <button class="btn btn-danger" onclick="admOut()">🔒 Deconectare</button>
         </div>
       </div>
@@ -217,10 +220,13 @@
       </div>
 
 		<div class="card">
+		<div class="card">
+    <h3>📈 Raport Activitate (Luna Curentă)</h3>
+    <button class="btn btn-primary" onclick="generateReport()">Calculează Orele Voluntarilor</button>
+    <div id="reportArea" style="margin-top:15px; max-height: 250px; overflow-y: auto;"></div>
+	</div>
         <h3>📑 Audit Programări</h3>
-        
         <input type="text" id="bSearch" placeholder="Caută după voluntar, admin sau dată..." oninput="rBTab()">
-        
         <div id="bMultiBar" class="multi-del-bar">
             <span id="bSelCount">0 selectați</span>
             <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selectați</button>
@@ -339,10 +345,9 @@
       });
   }
 
-  // --- LOGICA DE ACCES (UID-BASED) ---
+// --- LOGICA DE ACCES (UID-BASED) ---
   auth.onAuthStateChanged(u => {
     if(u) {
-        
         // Verificăm dacă are Custom Claim de admin
         u.getIdTokenResult().then(idTokenResult => {
             isA = !!idTokenResult.claims.admin;
@@ -353,17 +358,17 @@
                 document.getElementById("admSel").style.display = "block";
                 document.getElementById("uAuth").style.display = "none";
                 lk(false);
-                loadPendingVolunteers(); // Încărcăm voluntarii în așteptare pentru admin
-                listenToAllVolunteers(); // <--- ADAUGĂ ACEASTĂ LINIE AICI
+                loadPendingVolunteers(); 
+                listenToAllVolunteers(); 
             } else {
                 document.getElementById("admStatus").innerHTML = `<button class="btn btn-outline" onclick="admOut()">Deconectare</button>`;
                 checkVolunteerStatus(u);
             }
             rCal(); rVol();
+            applyMaintUI(); // <-- Forțăm reafișarea corectă a interfeței după ce știm cine ești
         });
     } else {
         isA = false;
-        // Refacem ambele butoane la deconectare
         document.getElementById("admStatus").innerHTML = `
             <button class="btn btn-success" onclick="openSignUpModal()" style="margin-right: 10px;">📝 Înregistrare</button>
             <button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>
@@ -371,10 +376,10 @@
         document.getElementById("admP").style.display = "none";
         document.getElementById("admSel").style.display = "none";
         document.getElementById("uAuth").style.display = "block";
-
         document.getElementById("authMsg").innerHTML = "Vă rugăm să vă autentificați.";
         lk(true);
         rCal();
+        applyMaintUI(); // <-- Forțăm reafișarea corectă la delogare
     }
   });
 
@@ -860,11 +865,66 @@ function prepPrint() {
     link.click();
     document.body.removeChild(link);
 }
+function cleanOldData() {
+    if(!confirm("⚠️ Ești sigur? Această acțiune va șterge definitiv toate programările mai vechi de 3 luni. Fă un backup (CSV/JSON) înainte!")) return;
+    
+    const limitDate = new Date();
+    limitDate.setMonth(limitDate.getMonth() - 3);
+    
+    const upds = {};
+    let count = 0;
+    
+    bks.forEach(b => {
+        if (new Date(b.date) < limitDate) {
+            upds['/bookings/' + b.id] = null;
+            count++;
+        }
+    });
+    
+    if(count === 0) return alert("Nu există date mai vechi de 3 luni care să necesite ștergere.");
+    
+    db.ref().update(upds).then(() => {
+        alert(`✅ Sistem curățat! Au fost șterse ${count} programări vechi.`);
+    }).catch(err => alert("Eroare la ștergere: " + err.message));
+}
+	function generateReport() {
+    const today = new Date();
+    const currMonth = curD.getMonth(); // Folosim luna selectată în calendarul adminului
+    const currYear = curD.getFullYear();
+    
+    const stats = {};
+    // Inițializăm toți voluntarii aprobați
+    vols.forEach(v => { stats[v.id] = { name: v.name, hours: 0, shifts: 0 }; });
+    
+    // Calculăm orele
+    bks.forEach(b => {
+        const bDate = new Date(b.date);
+        if(bDate.getMonth() === currMonth && bDate.getFullYear() === currYear && stats[b.uid]) {
+            const startH = parseInt(b.start.split(':')[0]);
+            let endH = parseInt(b.end.split(':')[0]);
+            if (b.end === "22:00" && endH === 22) endH = 22; // Corecție pentru format
+            
+            stats[b.uid].hours += (endH - startH);
+            stats[b.uid].shifts += 1;
+        }
+    });
+    
+    // Generăm tabelul
+    let html = `<table><thead><tr><th>Voluntar</th><th>Total Ture</th><th>Total Ore</th></tr></thead><tbody>`;
+    Object.values(stats).sort((a,b) => b.hours - a.hours).forEach(st => {
+        if(st.shifts > 0) {
+            html += `<tr><td><b>${st.name}</b></td><td>${st.shifts}</td><td style="color:var(--success); font-weight:bold;">${st.hours} h</td></tr>`;
+        }
+    });
+    html += `</tbody></table>`;
+    
+    document.getElementById("reportArea").innerHTML = html;
+}
+
 // --- LISTENERI BAZĂ DE DATE (Sincronizare în timp real) ---
   
-  // 1. Sincronizare Mentenanță (Include Pasul 2.2 - Ascundere completă)
-  db.ref('settings/maintenance').on('value', s => { 
-      isM = s.val(); 
+  // --- FUNCȚIE DEDICATĂ PENTRU UI MENTENANȚĂ ---
+  function applyMaintUI() {
       const maintBar = document.getElementById("maintBar");
       if(maintBar) maintBar.style.display = isM ? "block" : "none"; 
       
@@ -880,6 +940,12 @@ function prepPrint() {
           if(maintScreen) maintScreen.style.display = 'none';
           lk(false);
       }
+  }
+
+  // 1. Sincronizare Mentenanță
+  db.ref('settings/maintenance').on('value', s => { 
+      isM = s.val(); 
+      applyMaintUI(); // Apelăm funcția de fiecare dată când Adminul dă click pe buton
   });
 
   // 2. Sincronizare Programări (Fără asta nu apar turele pe ecran)
@@ -909,6 +975,30 @@ function prepPrint() {
           }
       });
   }
+function restoreData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if(!confirm("⚠️ ATENȚIE MAJORĂ: Această acțiune va ȘTERGE complet baza de date actuală și o va înlocui cu datele din fișierul selectat! Ai făcut un backup înainte?")) {
+        event.target.value = ''; // Resetăm selecția
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            db.ref().set(data).then(() => {
+                alert("✅ Baza de date a fost restaurată cu succes!");
+                location.reload(); // Reîncărcăm pagina automat pentru a aduce noile date
+            }).catch(err => alert("Eroare la restaurare din server: " + err.message));
+        } catch(err) {
+            alert("❌ Eroare: Fișierul selectat nu este un format JSON valid.");
+        }
+        event.target.value = ''; // Resetăm selecția
+    };
+    reader.readAsText(file);
+}
 </script>
 </body>
 </html>
