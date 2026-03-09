@@ -162,7 +162,10 @@
       <h3>👤 Selectează Voluntar (Admin)</h3>
       <select id="vSel"></select>
     </div>
-
+	<div class="card" id="admDayBks" style="display:none;">
+      <h3>📋 Programările Zilei Selectate</h3>
+      <div id="dayBksList" style="font-size: 0.85rem; color: #64748b;">Selectează o zi din calendar...</div>
+    </div>
     <div class="card locked-overlay" id="tBox">
       <h3>🕒 Selectează Interval</h3>
       <div class="time-grid" id="tGrid"></div>
@@ -185,7 +188,11 @@
     <div id="admP" style="display:none;">
       <div class="card" style="border: 2px solid var(--warning);">
         <h3>⚙️ Panou Administrator</h3>
-        <label><input type="checkbox" id="mTog" onchange="tglM(this.checked)"> Activează Mentenanță</label>
+<div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <span style="font-weight: bold;">Stare Mentenanță:</span>
+    <button id="btnMaintOn" class="btn btn-outline" onclick="tglM(true)">🔴 ON</button>
+    <button id="btnMaintOff" class="btn btn-success" onclick="tglM(false)">🟢 OFF</button>
+</div>  
         <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
             <button class="btn btn-outline" onclick="exportData()">📥 Backup JSON</button>
@@ -369,6 +376,7 @@
                 document.getElementById("admP").style.display = "block";
                 document.getElementById("admSel").style.display = "block";
                 document.getElementById("uAuth").style.display = "none";
+				document.getElementById("admDayBks").style.display = "block";
                 lk(false);
                 loadPendingVolunteers(); 
                 listenToAllVolunteers(); 
@@ -388,6 +396,7 @@
         document.getElementById("admP").style.display = "none";
         document.getElementById("admSel").style.display = "none";
         document.getElementById("uAuth").style.display = "block";
+		document.getElementById("admDayBks").style.display = "none";
         document.getElementById("authMsg").innerHTML = "Vă rugăm să vă autentificați.";
         lk(true);
         rCal();
@@ -487,7 +496,7 @@
           if (dBs.length === 0) btn.classList.add("day-available");
           else if (dBs.length >= 3) btn.classList.add("day-full");
           else btn.classList.add("day-partial");
-          btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); };
+          btn.onclick = () => { selD = d; selS=null; selE=null; rCal(); rSlt(); showDayBks(); };
       }
       if(selD && d.toDateString() === selD.toDateString()) btn.classList.add("selected");
       g.appendChild(btn);
@@ -541,6 +550,30 @@
     });
   }
 
+	function showDayBks() {
+    const container = document.getElementById("dayBksList");
+    if (!selD) { container.innerHTML = "Selectează o zi din calendar..."; return; }
+    
+    // Filtrăm turele pe ziua selectată și le ordonăm după ora de început
+    const dBs = bks.filter(b => new Date(b.date).toDateString() === selD.toDateString())
+                   .sort((a, b) => a.start.localeCompare(b.start));
+    
+    if (dBs.length === 0) {
+        container.innerHTML = "<p style='margin:0;'>Nicio programare pentru această zi.</p>";
+        return;
+    }
+    
+    let html = `<ul style="list-style:none; padding:0; margin:0;">`;
+dBs.forEach(b => {
+        html += `<li style="padding:8px 0; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 8px;">
+            <span style="word-break: break-word; flex: 1; min-width: 150px;"><b>${b.name}</b></span>
+            <span style="background:var(--gray-100); padding:4px 8px; border-radius:4px; white-space: nowrap;">🕒 ${b.start} - ${b.end}</span>
+        </li>`;
+    });
+    html += `</ul>`;
+    container.innerHTML = html;
+}
+
   function saveB() {
     const user = auth.currentUser;
     if(!user) return;
@@ -562,41 +595,132 @@
     }
   }
 
-  function execSave(n, p, targetUid) {
+function execSave(n, p, targetUid) {
     const effectiveE = selE !== null ? selE : selS;
     const min = Math.min(selS, effectiveE), max = Math.max(selS, effectiveE);
     
-    // Generăm cheia pentru contorul lunar
     const shiftDate = new Date(selD);
+    const requestedDateStr = shiftDate.toDateString();
+    const currentUserInfo = (isA && auth.currentUser) ? `Admin (${auth.currentUser.email})` : "Voluntar";
+    
+    // 1. Verificare instantanee a stării locale (Oprește suprapunerile evidente)
+    let instantOverlap = false;
+    if (!isA) {
+        bks.forEach(b => {
+            if (new Date(b.date).toDateString() === requestedDateStr) {
+                const bStartIdx = hrs.indexOf(b.start);
+                let bEndIdx = hrs.indexOf(b.end);
+                if (bEndIdx === -1) bEndIdx = 14; 
+                if (min < bEndIdx && (max + 1) > bStartIdx) instantOverlap = true;
+            }
+        });
+    }
+
+    if (instantOverlap) {
+        alert("⚠️ Acest interval a fost deja luat de altcineva între timp! Te rugăm să alegi altul.");
+        selS = null; selE = null; rSlt(); document.getElementById("cBtn").disabled = true;
+        return;
+    }
+
+    // Schimbăm starea butonului
+    const cBtn = document.getElementById("cBtn");
+    const originalBtnText = cBtn.innerText;
+    cBtn.innerText = "⏳ Se confirmă programarea...";
+    cBtn.disabled = true;
+
+    // 2. Generăm cheile
+    const newBookingKey = db.ref('bookings').push().key;
     const monthKey = `${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
     
-    const newBookingKey = db.ref('bookings').push().key;
     const updates = {};
-    
-    // --- MODIFICAREA ESTE AICI (Aflăm email-ul adminului) ---
-    const currentUserInfo = (isA && auth.currentUser) ? `Admin (${auth.currentUser.email})` : "Voluntar";
-    // ---------------------------------------------------------
-    
-    // 1. Salvăm datele programării
     updates['/bookings/' + newBookingKey] = { 
         name: n, 
         phone: p, 
         uid: targetUid, 
-        date: selD.toISOString(), 
+        date: shiftDate.toISOString(), 
         start: hrs[min], 
         end: hrs[max+1] || "22:00", 
-        auditUser: currentUserInfo,                     // <--- Salvăm email-ul aici
-        auditTime: new Date().toLocaleString('ro-RO')   // <--- Format de timp românesc
+        auditUser: currentUserInfo,                     
+        auditTime: new Date().toLocaleString('ro-RO'),
+        // AICI ESTE SECRETUL: Cerem serverului să pună timestamp-ul său exact la momentul salvării
+        serverTime: firebase.database.ServerValue.TIMESTAMP 
     };
-
-    // 2. Incrementăm contorul lunar al persoanei programate (LĂSAT INTACT)
     updates[`/shift_counts/${targetUid}/${monthKey}`] = firebase.database.ServerValue.increment(1);
 
+    // 3. Trimitem datele
     db.ref().update(updates).then(() => { 
-        selS = null; selE = null; rSlt(); 
-        alert(isA ? "Programare adăugată de Admin!" : "Programare realizată cu succes!"); 
+        
+        // 4. Așteptăm 2 secunde pentru a permite oricărei alte cereri concurente să ajungă la server
+        setTimeout(() => {
+            
+            // 5. FORȚĂM O CITIRE DIRECTĂ DE PE SERVER folosind .get() (ocolește cache-ul local)
+            db.ref('bookings').get().then((snap) => {
+                let iLostTheRace = false;
+                const myData = snap.child(newBookingKey).val();
+                
+                // Dacă cumva a fost ștearsă între timp, oprim execuția
+                if (!myData) return; 
+                const myServerTime = myData.serverTime || 0;
+
+                snap.forEach(child => {
+                    if (child.key === newBookingKey) return; 
+                    
+                    const b = child.val();
+                    if (!b || !b.date) return;
+
+                    if (new Date(b.date).toDateString() === requestedDateStr) {
+                        const bStartIdx = hrs.indexOf(b.start);
+                        let bEndIdx = hrs.indexOf(b.end);
+                        if (bEndIdx === -1) bEndIdx = 14;
+                        
+                        // Verificăm dacă există o suprapunere orară
+                        if (min < bEndIdx && (max + 1) > bStartIdx) {
+                            
+                            const otherServerTime = b.serverTime || 0;
+                            
+                            // COMPARAȚIA SUPREMĂ: Cine a ajuns primul la serverul Google?
+                            if (otherServerTime > 0 && otherServerTime < myServerTime) {
+                                iLostTheRace = true; // El a ajuns înaintea mea!
+                            } else if (otherServerTime === myServerTime && child.key < newBookingKey) {
+                                // Caz extrem: au ajuns în exact aceeași milisecundă
+                                iLostTheRace = true; 
+                            }
+                        }
+                    }
+                });
+
+                // 6. Decizia finală bazată pe timpul serverului
+                if (iLostTheRace && !isA) {
+                    // Rollback
+                    const rollback = {};
+                    rollback['/bookings/' + newBookingKey] = null; 
+                    rollback[`/shift_counts/${targetUid}/${monthKey}`] = firebase.database.ServerValue.increment(-1); 
+                    
+                    db.ref().update(rollback).then(() => {
+                        alert("⚠️ PREA TÂRZIU! Un alt voluntar s-a programat în aceeași secundă și a ajuns primul pe server. Te rugăm să alegi alt interval.");
+                        selD = null; selS = null; selE = null; 
+                        rCal(); rSlt(); 
+                        cBtn.innerText = originalBtnText;
+                    });
+                } else {
+                    // Am câștigat cursa!
+                    alert(isA ? "✅ Programare adăugată de Admin (Forțată)!" : "✅ Programare realizată cu succes!"); 
+                    selD = null; selS = null; selE = null; 
+                    rCal(); rSlt(); 
+                    cBtn.innerText = originalBtnText;
+                }
+            }).catch(err => {
+                // Dacă pică verificarea (internet picat brusc), resetăm UI-ul oricum
+                selD = null; selS = null; selE = null; rCal(); rSlt(); 
+                cBtn.innerText = originalBtnText;
+            });
+
+        }, 2000); // Am crescut delay-ul la 2 secunde pentru extra siguranță
+
     }).catch(err => {
-        alert("❌ Programarea a fost respinsă de server. " + (isA ? err.message : "Posibil ai depășit limita lunară."));
+        alert("❌ Eroare de la server: " + err.message);
+        selD = null; selS = null; selE = null; rCal(); rSlt(); 
+        cBtn.innerText = originalBtnText;
     });
   }
 
@@ -663,19 +787,16 @@ function rVol() {
         });
     }
 
-    // 2. Sortăm descrescător (cele mai noi primele), tăiem la 50 și le afișăm
-    filteredBks.sort((a,b) => new Date(b.auditTime || 0) - new Date(a.auditTime || 0)).slice(0, 50).forEach(b => {
+    // 2. Sortăm CRESCĂTOR după Data Turei (new Date(a.date) - new Date(b.date))
+    filteredBks.sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 150).forEach(b => {
         
-        // Colorăm diferit Adminul față de Voluntar (pentru un aspect vizual plăcut)
+        // Colorăm diferit Adminul față de Voluntar
         let aUser = b.auditUser || "Admin (Vechi)";
         let userStyle = aUser.includes('Admin') 
             ? 'background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;' 
             : 'background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;';
-        
-        // Dacă programarea e veche și nu are timestamp, punem o liniuță
         let aTime = b.auditTime ? b.auditTime : "-";
-
-        // Construim rândul din tabel (păstrând exact logica ta pentru checkbox-uri)
+        
         auditBody.innerHTML += `<tr>
             <td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck', 'bMultiBar', 'bSelCount')"></td>
             <td><b>${b.name}</b></td>
@@ -685,13 +806,13 @@ function rVol() {
             <td style="font-size: 0.8rem; color: #64748b;">${aTime}</td>
         </tr>`;
     });
-  }
+}
 
   function delV(id) { if(confirm("Ștergi voluntarul?")) db.ref('volunteers/'+id).remove(); }
   function tglM(v) { db.ref('settings/maintenance').set(v); }
   
   
-function resetPass(email) {
+	function resetPass(email) {
     if (!email) {
       alert("⚠️ Acest voluntar nu are o adresă de email salvată în baza de date. Nu se poate trimite linkul de resetare.");
       return;
@@ -980,17 +1101,26 @@ function cleanOldData() {
   }
 
   // 1. Sincronizare Mentenanță
-  db.ref('settings/maintenance').on('value', s => { 
-      isM = s.val(); 
-      applyMaintUI(); // Apelăm funcția de fiecare dată când Adminul dă click pe buton
-  });
+	db.ref('settings/maintenance').on('value', s => { 
+    isM = s.val(); 
+    applyMaintUI(); 
+    
+    // Actualizăm aspectul butoanelor de mentenanță
+    const btnOn = document.getElementById("btnMaintOn");
+    const btnOff = document.getElementById("btnMaintOff");
+    if(btnOn && btnOff) {
+        btnOn.className = isM ? "btn btn-danger" : "btn btn-outline";
+        btnOff.className = isM ? "btn btn-outline" : "btn btn-success";
+    }
+});
 
   // 2. Sincronizare Programări (Fără asta nu apar turele pe ecran)
   db.ref('bookings').on('value', s => { 
       bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; 
       rCal(); 
       rBTab(); 
-      if(selD) rSlt(); 
+      if(selD) rSlt();
+	if(selD && isA) showDayBks();	  
       
       const user = auth.currentUser;
       if(user && !isA) {
@@ -1001,17 +1131,19 @@ function cleanOldData() {
   });
 
   // 3. Sincronizare Voluntari (Pentru listele Adminului)
-  function listenToAllVolunteers() {
-      db.ref('volunteers').on('value', s => { 
-          vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
-          rVol();
-          
-          const sel = document.getElementById("vSel");
-          if(sel) {
-              sel.innerHTML = vols.map(v => `<option value="${v.id}" data-phone="${v.phone}">${v.name}</option>`).join('');
-          }
-      });
-  }
+	function listenToAllVolunteers() {
+    db.ref('volunteers').on('value', s => { 
+        vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
+        rVol();
+        
+        const sel = document.getElementById("vSel");
+        if(sel) {
+            // Sortăm alfabetic după nume
+            const sortedVols = [...vols].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            sel.innerHTML = sortedVols.map(v => `<option value="${v.id}" data-phone="${v.phone}">${v.name}</option>`).join('');
+        }
+    });
+}
 
 function restoreData(event) {
     const file = event.target.files[0];
@@ -1045,6 +1177,26 @@ function restoreData(event) {
     reader.readAsText(file);
 }
 
+</script>
+<div id="cookieBanner" style="display:none; position:fixed; bottom:0; left:0; width:100%; background:#0f172a; color:white; padding:15px; z-index:9999; box-sizing:border-box; font-size:0.85rem; border-top: 4px solid var(--primary); box-shadow: 0 -5px 15px rgba(0,0,0,0.3);">
+    <div style="max-width:1200px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+        <div style="flex:1; min-width:280px; line-height: 1.4;">
+            🍪 <b>Notificare Cookies & GDPR:</b> Acest site folosește cookie-uri strict necesare pentru funcționarea autentificării sigure (Firebase). Datele tale personale (Nume, Telefon, Email) sunt stocate criptat și folosite exclusiv pentru gestionarea internă a programărilor voluntarilor SMURD. Prin continuarea utilizării platformei, îți exprimi acordul cu prelucrarea acestor date conform normelor GDPR.
+        </div>
+        <button class="btn btn-primary" onclick="acceptGDPR()" style="white-space: nowrap; padding: 10px 20px; font-weight: bold;">Am înțeles și accept</button>
+    </div>
+</div>
+
+<script>
+// Verificăm instantaneu dacă utilizatorul a acceptat deja
+if (!localStorage.getItem("smurdGdprAccepted")) {
+    document.getElementById("cookieBanner").style.display = "flex"; // Folosim flex pentru a păstra așezarea frumoasă
+}
+
+function acceptGDPR() {
+    localStorage.setItem("smurdGdprAccepted", "true");
+    document.getElementById("cookieBanner").style.display = "none";
+}
 </script>
 </body>
 </html>
