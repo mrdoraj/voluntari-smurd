@@ -241,10 +241,16 @@
         <div id="reportArea" style="margin-top:15px; max-height: 250px; overflow-y: auto; overflow-x: auto;"></div>
       </div>
 
-      <div class="card">
+		<div class="card">
         <h3>📑 Audit Programări</h3>
-        <input type="text" id="bSearch" placeholder="Caută după voluntar, admin sau dată..." oninput="rBTab()">
-        <div id="bMultiBar" class="multi-del-bar">
+		<div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+            <input type="text" id="bSearch" placeholder="Caută după voluntar, admin sau dată..." oninput="rBTab()" style="flex: 1; margin-bottom: 0;">    
+            <select id="bMonthFilter" onchange="rBTab()" style="width: auto; min-width: 180px; margin-bottom: 0;" title="Filtrează după lună">
+                <option value="">Filtru Lună (Toate)</option>
+            </select>            
+            <button class="btn btn-outline" onclick="document.getElementById('bSearch').value=''; document.getElementById('bMonthFilter').value=''; rBTab();" style="margin-bottom: 0;" title="Resetează filtrele">✖ Reset</button>
+        </div>
+        <div id="bMultiBar" class="multi-del-bar">	
             <span id="bSelCount">0 selectați</span>
             <button class="btn btn-danger" onclick="bulkDel('bookings', 'bCheck')">Șterge Selectați</button>
         </div>
@@ -290,6 +296,45 @@
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database(), auth = firebase.auth();
+  
+  // --- SETĂRI DELOGARE INACTIVITATE ---
+  let inactivityTimer;
+  const INACTIVITY_LIMIT = 10 * 60 * 1000; // 10 minute (în milisecunde). Modifică aici dacă vrei alt interval.
+
+  function logoutDueToInactivity() {
+    auth.signOut().then(() => {
+      alert("⏳ Ai fost deconectat automat din motive de securitate (inactivitate).");
+      location.reload();
+    });
+  }
+
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    // Pornim timer-ul DOAR dacă există un utilizator autentificat
+    if (auth.currentUser) {
+      inactivityTimer = setTimeout(logoutDueToInactivity, INACTIVITY_LIMIT);
+    }
+  }
+
+  function setupInactivityListeners() {
+    // Detectăm orice mișcare sau interacțiune
+    window.addEventListener('mousemove', resetInactivityTimer);
+    window.addEventListener('mousedown', resetInactivityTimer);
+    window.addEventListener('keypress', resetInactivityTimer);
+    window.addEventListener('touchmove', resetInactivityTimer);
+    window.addEventListener('scroll', resetInactivityTimer);
+    resetInactivityTimer(); // Pornim timer-ul imediat după login
+  }
+
+  function removeInactivityListeners() {
+    // Curățăm evenimentele și timer-ul dacă utilizatorul s-a delogat manual
+    window.removeEventListener('mousemove', resetInactivityTimer);
+    window.removeEventListener('mousedown', resetInactivityTimer);
+    window.removeEventListener('keypress', resetInactivityTimer);
+    window.removeEventListener('touchmove', resetInactivityTimer);
+    window.removeEventListener('scroll', resetInactivityTimer);
+    clearTimeout(inactivityTimer);
+  }
 
   let curD = new Date(), selD = null, selS = null, selE = null;
   let bks = [], vols = [], isA = false, isM = false;
@@ -304,8 +349,15 @@
   }
   function admOut() { auth.signOut().then(() => location.reload()); }
 
-  // --- LOGICA PENTRU MODAL ȘI ÎNREGISTRARE (SIGN UP) ---
+// --- LOGICA PENTRU MODAL ȘI ÎNREGISTRARE (SIGN UP) ---
   function openSignUpModal() {
+    // --- BLOCAJ CREARE CONTURI ---
+    if (isM) {
+        alert("⚠️ Sistemul este în mentenanță. Nu se pot crea conturi noi în acest moment.");
+        return;
+    }
+    // -----------------------------
+
     document.getElementById("signUpModal").style.display = "flex";
     document.getElementById("suMsg").innerText = "";
     document.getElementById("suName").value = "";
@@ -367,16 +419,43 @@
 // --- LOGICA DE ACCES (UID-BASED) ---
   auth.onAuthStateChanged(u => {
     if(u) {
+        // Pornim timer-ul de inactivitate
+        setupInactivityListeners(); 
+		// --- ADĂUGAT AICI: Pornim sincronizarea DOAR când suntem logați ---
+        db.ref('bookings').on('value', s => { 
+            bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; 
+            populateMonthFilter();
+            rCal(); 
+            rBTab(); 
+            if(selD) rSlt();
+            if(selD && isA) showDayBks();	  
+            
+            if(!isA) {
+                db.ref('volunteers/' + u.uid).once('value', vSnap => {
+                    if(vSnap.exists()) searchMyStats(vSnap.val().phone);
+                });
+            }
+        });
+        // -------------------------------------------------------------------
         // Verificăm dacă are Custom Claim de admin
         u.getIdTokenResult().then(idTokenResult => {
             isA = !!idTokenResult.claims.admin;
             
+            // --- BLOCAJ MENTENANȚĂ PENTRU VOLUNTARI LA LOGARE ---
+            if (!isA && isM) {
+                auth.signOut().then(() => {
+                    alert("⚠️ Sistemul este momentan în mentenanță. Doar administratorii se pot autentifica în acest moment.");
+                });
+                return; // Oprim execuția restului de cod
+            }
+            // ----------------------------------------------------
+
             if(isA) {
                 document.getElementById("admStatus").innerHTML = `<button class="btn btn-danger" onclick="admOut()">🔒 Deconectare Admin</button>`;
                 document.getElementById("admP").style.display = "block";
                 document.getElementById("admSel").style.display = "block";
                 document.getElementById("uAuth").style.display = "none";
-				document.getElementById("admDayBks").style.display = "block";
+                document.getElementById("admDayBks").style.display = "block";
                 lk(false);
                 loadPendingVolunteers(); 
                 listenToAllVolunteers(); 
@@ -385,9 +464,12 @@
                 checkVolunteerStatus(u);
             }
             rCal(); rVol();
-            applyMaintUI(); // <-- Forțăm reafișarea corectă a interfeței după ce știm cine ești
+            applyMaintUI(); 
         });
     } else {
+        // Oprim timer-ul de inactivitate
+        removeInactivityListeners();
+
         isA = false;
         document.getElementById("admStatus").innerHTML = `
             <button class="btn btn-success" onclick="openSignUpModal()" style="margin-right: 10px;">📝 Înregistrare</button>
@@ -396,11 +478,11 @@
         document.getElementById("admP").style.display = "none";
         document.getElementById("admSel").style.display = "none";
         document.getElementById("uAuth").style.display = "block";
-		document.getElementById("admDayBks").style.display = "none";
+        document.getElementById("admDayBks").style.display = "none";
         document.getElementById("authMsg").innerHTML = "Vă rugăm să vă autentificați.";
         lk(true);
         rCal();
-        applyMaintUI(); // <-- Forțăm reafișarea corectă la delogare
+        applyMaintUI(); 
     }
   });
 
@@ -767,19 +849,68 @@ function rVol() {
     });
   }
 
-	function rBTab() {
+// --- GENERARE FILTRU LUNI ÎN ROMÂNĂ ---
+  function populateMonthFilter() {
+    const mNames = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"];
+    const sel = document.getElementById("bMonthFilter");
+    if(!sel) return;
+    
+    const currentVal = sel.value; // Păstrăm selecția actuală dacă există
+    sel.innerHTML = '<option value="">Filtru Lună (Toate)</option>';
+    
+    // Extragem lunile unice formatate "MM-YYYY" din baza de date
+    const uniqueMonths = new Set();
+    bks.forEach(b => {
+        const d = new Date(b.date);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        uniqueMonths.add(`${mm}-${yyyy}`);
+    });
+    
+    // Le sortăm descrescător (cele mai noi primele)
+    const sorted = Array.from(uniqueMonths).sort((a,b) => {
+        const [m1, y1] = a.split('-');
+        const [m2, y2] = b.split('-');
+        if (y1 !== y2) return y2 - y1; 
+        return m2 - m1; 
+    });
+    
+    // Adăugăm opțiunile în interfață
+    sorted.forEach(my => {
+        const [m, y] = my.split('-');
+        const textRo = `${mNames[parseInt(m)-1]} ${y}`;
+        sel.innerHTML += `<option value="${my}">${textRo} (${my})</option>`;
+    });
+    
+    if(currentVal) sel.value = currentVal;
+  }
+
+function rBTab() {
     const auditBody = document.getElementById("bTab"); 
     
-    // Verificăm dacă există bara de căutare și îi luăm textul
     const searchInput = document.getElementById("bSearch");
     const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
     
+    const monthInput = document.getElementById("bMonthFilter");
+    const filterMonth = monthInput ? monthInput.value : ""; // Formatul de citit este acum "MM-YYYY"
+    
     auditBody.innerHTML = "";
 
-    // 1. Filtrăm lista de programări (bks) pe baza textului căutat
     let filteredBks = bks;
+
+    // A. Filtrăm mai întâi după lună și an (dacă a fost selectată)
+    if (filterMonth) {
+        // --- MODIFICAT AICI PENTRU A CITI MM-YYYY ---
+        const [fMonth, fYear] = filterMonth.split("-");
+        filteredBks = filteredBks.filter(b => {
+            const d = new Date(b.date);
+            return d.getFullYear() == fYear && (d.getMonth() + 1) == parseInt(fMonth);
+        });
+    }
+
+    // B. Apoi filtrăm prin textul căutat (dacă există)
     if (searchTerm) {
-        filteredBks = bks.filter(b => {
+        filteredBks = filteredBks.filter(b => {
             const nameMatch = (b.name || "").toLowerCase().includes(searchTerm);
             const userMatch = (b.auditUser || "").toLowerCase().includes(searchTerm);
             const dateMatch = new Date(b.date).toLocaleDateString('ro-RO').includes(searchTerm);
@@ -787,10 +918,8 @@ function rVol() {
         });
     }
 
-    // 2. Sortăm CRESCĂTOR după Data Turei (new Date(a.date) - new Date(b.date))
+    // Sortăm și generăm rândurile (restul rămâne la fel)
     filteredBks.sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 150).forEach(b => {
-        
-        // Colorăm diferit Adminul față de Voluntar
         let aUser = b.auditUser || "Admin (Vechi)";
         let userStyle = aUser.includes('Admin') 
             ? 'background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;' 
@@ -806,7 +935,7 @@ function rVol() {
             <td style="font-size: 0.8rem; color: #64748b;">${aTime}</td>
         </tr>`;
     });
-}
+  }
 
   function delV(id) { if(confirm("Ștergi voluntarul?")) db.ref('volunteers/'+id).remove(); }
   function tglM(v) { db.ref('settings/maintenance').set(v); }
@@ -1054,10 +1183,17 @@ function cleanOldData() {
     // Inițializăm toți voluntarii aprobați
     vols.forEach(v => { stats[v.id] = { name: v.name, hours: 0, shifts: 0 }; });
     
-    // Calculăm orele
+// Calculăm orele
     bks.forEach(b => {
         const bDate = new Date(b.date);
-        if(bDate.getMonth() === currMonth && bDate.getFullYear() === currYear && stats[b.uid]) {
+        if(bDate.getMonth() === currMonth && bDate.getFullYear() === currYear) {
+            
+            // --- PROTECȚIE NOUĂ: Dacă voluntarul a fost șters, îl adăugăm temporar în raport
+            if (!stats[b.uid]) {
+                stats[b.uid] = { name: (b.name ? b.name + " (Cont Șters)" : "Necunoscut"), hours: 0, shifts: 0 };
+            }
+            // -----------------------------------------------------------------------------
+
             const startH = parseInt(b.start.split(':')[0]);
             let endH = parseInt(b.end.split(':')[0]);
             if (b.end === "22:00" && endH === 22) endH = 22; // Corecție pentru format
@@ -1100,37 +1236,46 @@ function cleanOldData() {
       }
   }
 
-  // 1. Sincronizare Mentenanță
-	db.ref('settings/maintenance').on('value', s => { 
+// 1. Sincronizare Mentenanță
+  db.ref('settings/maintenance').on('value', s => { 
     isM = s.val(); 
     applyMaintUI(); 
     
-    // Actualizăm aspectul butoanelor de mentenanță
+    // --- DELOGARE FORȚATĂ ÎN TIMP REAL ---
+    if (isM && auth.currentUser && !isA) {
+        auth.signOut().then(() => {
+            alert("⚠️ Sistemul a intrat în mentenanță. Ai fost deconectat automat pentru siguranța datelor.");
+        });
+    }
+    // -------------------------------------
+
+// Actualizăm aspectul butoanelor de mentenanță
     const btnOn = document.getElementById("btnMaintOn");
     const btnOff = document.getElementById("btnMaintOff");
     if(btnOn && btnOff) {
-        btnOn.className = isM ? "btn btn-danger" : "btn btn-outline";
-        btnOff.className = isM ? "btn btn-outline" : "btn btn-success";
-    }
-});
+        // Forțăm culorile de fundal și textul alb
+        btnOn.style.backgroundColor = "#dc2626"; // Roșu (var --danger)
+        btnOn.style.color = "white";
+        
+        btnOff.style.backgroundColor = "#16a34a"; // Verde (var --success)
+        btnOff.style.color = "white";
+        
+        // Eliminăm border-ul care ar putea rămâne de la btn-outline
+        btnOn.style.border = "none";
+        btnOff.style.border = "none";
 
-  // 2. Sincronizare Programări (Fără asta nu apar turele pe ecran)
-  db.ref('bookings').on('value', s => { 
-      bks = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : []; 
-      rCal(); 
-      rBTab(); 
-      if(selD) rSlt();
-	if(selD && isA) showDayBks();	  
-      
-      const user = auth.currentUser;
-      if(user && !isA) {
-          db.ref('volunteers/' + user.uid).once('value', vSnap => {
-              if(vSnap.exists()) searchMyStats(vSnap.val().phone);
-          });
-      }
+        // Aplicăm opacitatea pentru a indica starea activă
+        btnOn.style.opacity = isM ? "1" : "0.3";
+        btnOff.style.opacity = isM ? "0.3" : "1";
+        
+        // Adăugăm un mic efect vizual pentru butonul activ (opțional)
+        btnOn.style.boxShadow = isM ? "0 0 10px rgba(220, 38, 38, 0.5)" : "none";
+        btnOff.style.boxShadow = !isM ? "0 0 10px rgba(22, 163, 74, 0.5)" : "none";
+    }
   });
 
-  // 3. Sincronizare Voluntari (Pentru listele Adminului)
+
+  // 2. Sincronizare Voluntari (Pentru listele Adminului)
 	function listenToAllVolunteers() {
     db.ref('volunteers').on('value', s => { 
         vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
