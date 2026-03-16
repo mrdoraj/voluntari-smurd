@@ -9,106 +9,127 @@
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
 
-  <style>
+<style>
     :root { 
-      --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --warning: #f59e0b;
+      --primary: #2563eb; --primary-dark: #1d4ed8; 
+      --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
       --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0; --text: #0f172a;
+      --app-bg: #f4f6f8;
     }
-    body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(--text); margin: 0; padding-bottom: 50px; }
     
-    .header { background: white; border-bottom: 1px solid var(--gray-200); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
-    @media (min-width: 1024px) { .container { grid-template-columns: 380px 1fr; } }
+    body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background: var(--app-bg); 
+      color: var(--text); 
+      margin: 0; 
+      padding-bottom: 90px; /* Spațiu pentru butonul sticky */
+      -webkit-tap-highlight-color: transparent; /* Elimină flash-ul albastru pe mobil */
+    }
     
-    .card { background: white; border-radius: 12px; border: 1px solid var(--gray-200); padding: 1.5rem; margin-bottom: 1.5rem; }
-    .btn { padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; justify-content: center; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-outline { background: transparent; border: 1px solid var(--gray-200); color: var(--text); }
+    /* --- HEADER (Glassmorphism) --- */
+    .header { 
+      background: rgba(255, 255, 255, 0.85); 
+      backdrop-filter: blur(12px); 
+      -webkit-backdrop-filter: blur(12px); 
+      border-bottom: 1px solid rgba(226, 232, 240, 0.6); 
+      padding: 1rem 1.5rem; 
+      display: flex; justify-content: space-between; align-items: center; 
+      position: sticky; top: 0; z-index: 100; 
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
     
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 1rem; }
-    .cal-day { aspect-ratio: 1; border: 1px solid var(--gray-200); border-radius: 8px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-    .cal-day.selected { border: 3px solid var(--primary) !important; transform: scale(0.95); }
+    .container { max-width: 1200px; margin: 1rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+    @media (min-width: 1024px) { .container { grid-template-columns: 380px 1fr; margin: 2rem auto; } }
+    
+    /* --- CARDURI (App style) --- */
+    .card { background: white; border-radius: 16px; border: 1px solid rgba(226, 232, 240, 0.8); padding: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 1.25rem; }
+    .card h3 { margin-top: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+    
+    /* --- BUTOANE (Touch Friendly) --- */
+    .btn { padding: 14px 20px; border-radius: 12px; font-weight: 600; cursor: pointer; border: none; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); justify-content: center; }
+    .btn:active { transform: scale(0.96); } /* Efect tactil */
+    .btn-primary { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2); }
+    .btn-danger { background: var(--danger); color: white; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-warning { background: var(--warning); color: black; }
+    .btn-outline { background: white; border: 1px solid var(--gray-200); color: var(--text); }
+    
+    /* --- INPUTURI & SELECTOARE --- */
+    /* Font size 16px previne zoom-ul forțat pe iPhone */
+    input, select, textarea { width: 100%; padding: 14px; border-radius: 12px; border: 1.5px solid var(--gray-200); margin-bottom: 12px; box-sizing: border-box; font-size: 16px; transition: border 0.2s; background: var(--gray-50); }
+    input:focus, select:focus { outline: none; border-color: var(--primary); background: white; }
+    
+    /* --- CALENDAR --- */
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 1rem; }
+    .cal-day { aspect-ratio: 1; border: 2px solid transparent; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; padding: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .cal-day:active { transform: scale(0.9); }
+    .cal-day.selected { border-color: var(--primary) !important; transform: scale(0.95); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); z-index: 2; }
     
     .day-available { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
-    .day-partial { background: #fef9c3; color: #854d0e; border-color: #fde047; }
-    .day-full { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-    .day-past { opacity: 0.4; cursor: not-allowed; background: var(--gray-100); color: #64748b; }
+    .day-partial { background: #fefce8; color: #854d0e; border-color: #fef08a; }
+    .day-full { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+    .day-past { opacity: 0.5; cursor: not-allowed; background: var(--gray-100); color: #94a3b8; box-shadow: none; border-color: transparent; }
 
-    .multi-del-bar { display: none; justify-content: space-between; align-items: center; background: #fff1f2; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #fda4af; }
+    /* --- INTERVALE ORARE --- */
+    .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+    .time-slot { padding: 16px 10px; border: 2px solid var(--gray-100); border-radius: 12px; text-align: center; cursor: pointer; font-weight: 600; font-size: 0.95rem; background: var(--gray-50); transition: all 0.2s; }
+    .time-slot:active { transform: scale(0.95); }
+    .time-slot.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+    .time-slot.taken { background: #fee2e2; color: #991b1b; border-color: transparent; cursor: not-allowed; opacity: 0.8; }
+    .time-slot.overlap-admin { border: 2px dashed var(--warning); color: #854d0e; background: #fefce8; }
 
-    .time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-    .time-slot { padding: 10px; border: 1px solid var(--gray-200); border-radius: 8px; text-align: center; cursor: pointer; font-weight: bold; }
-    .time-slot.active { background: var(--primary); color: white; }
-    .time-slot.taken { background: #fee2e2; color: #991b1b; cursor: not-allowed; }
-    .time-slot.overlap-admin { border: 2px dashed var(--warning); color: var(--warning); background: #fffbeb; }
-
-    .locked-overlay { opacity: 0.4; pointer-events: none !important; filter: grayscale(1); }
-    #maintBar { display: none; background: var(--danger); color: white; text-align: center; padding: 10px; font-weight: bold; border-radius: 8px; margin-bottom: 10px; }
-
-	input, select, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--gray-200); margin-bottom: 10px; box-sizing: border-box; }
-        /* Reparații Tabele pe Mobil */
-    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 600px; } 
-    th, td { padding: 14px; border-bottom: 1px solid var(--gray-200); text-align: left; }
-    th { background: var(--gray-100); }
-    
-		/* Reparații Așezare Pagina pe Mobil (Portrait) */
-    main, aside { min-width: 0; }
+    /* --- BUTON CONFIRMARE (STICKY PE MOBIL) --- */
+    #cBtn { width: 100%; margin-top: 20px; font-size: 1.05rem; padding: 16px; }
     @media (max-width: 768px) {
-        .header { flex-direction: column; gap: 10px; padding: 1rem; text-align: center; }
-        #admStatus { display: flex; width: 100%; gap: 10px; justify-content: center; flex-wrap: wrap; }
-        #admStatus .btn { margin: 0 !important; flex: 1; min-width: 140px; }
-        .card { padding: 1rem; }
+      #cBtn { position: fixed; bottom: 20px; left: 5%; width: 90%; z-index: 1000; box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4); border-radius: 50px; margin-top: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
+      #cBtn:disabled { transform: translateY(120%); opacity: 0; pointer-events: none; } /* Ascunde butonul fluid cand e dezactivat */
     }
 
-    .uid-copy-box { background: #f1f5f9; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; border: 1px dashed #cbd5e1; margin-top: 10px; word-break: break-all; }
+    /* --- ELEMENTE ADIACENTE --- */
+    .multi-del-bar { display: none; justify-content: space-between; align-items: center; background: #fff1f2; padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #fda4af; font-weight: 600; color: #991b1b; }
+    .locked-overlay { opacity: 0.4; pointer-events: none !important; filter: grayscale(1); }
+    #maintBar { display: none; background: var(--danger); color: white; text-align: center; padding: 12px; font-weight: bold; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
+    .uid-copy-box { background: var(--gray-100); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; border: 1px dashed #cbd5e1; margin-top: 10px; word-break: break-all; }
 
+    /* --- TABELE (Mobile Scroll Nativil) --- */
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; border-radius: 12px; border: 1px solid var(--gray-200); scrollbar-width: none; }
+    .table-responsive::-webkit-scrollbar { display: none; } /* Ascunde bara de scroll inestetică */
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 700px; background: white; } 
+    th, td { padding: 16px; border-bottom: 1px solid var(--gray-100); text-align: left; }
+    th { background: var(--gray-50); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; color: #64748b; letter-spacing: 0.5px; }
+    tr:last-child td { border-bottom: none; }
+
+    /* --- REPARAȚII AȘEZARE PE MOBIL --- */
+    @media (max-width: 768px) {
+        .header { flex-direction: column; gap: 12px; padding: 1rem; text-align: center; }
+        #admStatus { display: flex; width: 100%; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        #admStatus .btn { margin: 0 !important; flex: 1; min-width: 140px; }
+        .card { padding: 1.25rem; }
+        
+        /* Modificări pentru butoanele panoului de admin să fie 100% pe mobil */
+        #admP .btn { width: 100%; justify-content: center; }
+        .table-responsive { border: none; }
+    }
+
+    /* --- MODAL SIGN UP / LOGIN --- */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .modal-content { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); }
+    .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; line-height: 1; color: #94a3b8; cursor: pointer; transition: color 0.2s; }
+    .close-btn:hover { color: var(--danger); }
+
+    /* --- PRINT STYLES --- */
     #printArea { display: none; font-family: sans-serif; color: black; }
-	@media print {
-      /* Forțăm orientarea paginii pe orizontală și marginile */
+    @media print {
       @page { size: landscape; margin: 1cm; }
-      
-      /* Forțăm printarea culorilor de fundal (esențial pentru headere gri) */
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      
+      body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print { display: none !important; }
       #printArea { display: block !important; width: 100%; }
-      
       .p-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 2px solid #000; border-left: 2px solid #000; }
       .p-cell { border-right: 2px solid #000; border-bottom: 2px solid #000; min-height: 110px; padding: 5px; font-size: 11px; overflow: hidden; page-break-inside: avoid; }
       .p-day-num { font-weight: bold; font-size: 14px; border-bottom: 1px solid #000; display: block; margin-bottom: 4px; background: #f1f5f9; padding: 2px 5px; }
       .p-header { display: grid; grid-template-columns: repeat(7, 1fr); font-weight: bold; text-align: center; background: #e2e8f0 !important; border: 2px solid #000; border-bottom: none; padding: 8px 0; }
-      
       .p-entry { margin-bottom: 5px; line-height: 1.2; border-bottom: 1px dotted #ccc; padding-bottom: 3px; }
     }
-
-    /* --- STILURI MODAL SIGN UP --- */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex; justify-content: center; align-items: center;
-      z-index: 9999;
-    }
-    .modal-content {
-      background: white; padding: 25px; border-radius: 10px;
-      width: 90%; max-width: 400px; position: relative;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    .close-btn {
-      position: absolute; top: 10px; right: 15px; font-size: 24px;
-      font-weight: bold; color: #555; cursor: pointer;
-    }
-    .close-btn:hover { color: red; }
-    .modal-content input {
-      width: 100%; padding: 10px; margin-bottom: 15px;
-      border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;
-    }
-    .modal-content button {
-      width: 100%; padding: 10px; background-color: #28a745;
-      color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
-    }
-    .modal-content button:hover { background-color: #218838; }
   </style>
 </head>
 <body>
