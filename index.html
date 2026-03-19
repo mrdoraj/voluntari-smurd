@@ -343,9 +343,10 @@
 	  firebase.initializeApp(firebaseConfig);
 	  const db = firebase.database(), auth = firebase.auth();
 	  
-	  // --- SETĂRI DELOGARE INACTIVITATE ---
+// --- SETĂRI DELOGARE INACTIVITATE ---
 	  let inactivityTimer;
-	  const INACTIVITY_LIMIT = 10 * 60 * 1000; // 10 minute (în milisecunde). Modifică aici dacă vrei alt interval.
+	  const INACTIVITY_LIMIT = 10 * 60 * 1000; // 10 minute (în milisecunde)
+	  let lastActivityTime = Date.now(); // Salvăm momentul exact al ultimei interacțiuni
 
 	  function logoutDueToInactivity() {
 		auth.signOut().then(() => {
@@ -354,31 +355,47 @@
 		});
 	  }
 
+	  function checkInactivity() {
+		// Verificăm dacă timpul real scurs este mai mare decât limita
+		if (auth.currentUser && (Date.now() - lastActivityTime >= INACTIVITY_LIMIT)) {
+		  logoutDueToInactivity();
+		}
+	  }
+
 	  function resetInactivityTimer() {
+		lastActivityTime = Date.now(); // Actualizăm cu timpul prezent
 		clearTimeout(inactivityTimer);
-		// Pornim timer-ul DOAR dacă există un utilizator autentificat
 		if (auth.currentUser) {
-		  inactivityTimer = setTimeout(logoutDueToInactivity, INACTIVITY_LIMIT);
+		  inactivityTimer = setTimeout(checkInactivity, INACTIVITY_LIMIT);
+		}
+	  }
+
+	  // Funcție nouă: Se declanșează când utilizatorul readuce aplicația în prim-plan
+	  function handleVisibilityChange() {
+		if (document.visibilityState === 'visible') {
+		  checkInactivity(); // Verificăm imediat cât timp a trecut
 		}
 	  }
 
 	  function setupInactivityListeners() {
-		// Detectăm orice mișcare sau interacțiune
 		window.addEventListener('mousemove', resetInactivityTimer);
 		window.addEventListener('mousedown', resetInactivityTimer);
 		window.addEventListener('keypress', resetInactivityTimer);
 		window.addEventListener('touchmove', resetInactivityTimer);
 		window.addEventListener('scroll', resetInactivityTimer);
-		resetInactivityTimer(); // Pornim timer-ul imediat după login
+		// Adăugăm listener-ul pentru trecerea în background / prim-plan
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		
+		resetInactivityTimer(); 
 	  }
 
 	  function removeInactivityListeners() {
-		// Curățăm evenimentele și timer-ul dacă utilizatorul s-a delogat manual
 		window.removeEventListener('mousemove', resetInactivityTimer);
 		window.removeEventListener('mousedown', resetInactivityTimer);
 		window.removeEventListener('keypress', resetInactivityTimer);
 		window.removeEventListener('touchmove', resetInactivityTimer);
 		window.removeEventListener('scroll', resetInactivityTimer);
+		document.removeEventListener('visibilitychange', handleVisibilityChange);
 		clearTimeout(inactivityTimer);
 	  }
 
@@ -716,7 +733,7 @@
 			db.ref('volunteers/' + user.uid).once('value', s => {
 				const v = s.val();
 				// Păstrăm și verificarea vizuală/locală pentru un răspuns rapid
-				const monthlyBks = bks.filter(b => b.uid === user.uid && new Date(b.date).getMonth() === selD.getMonth()).length;
+				const monthlyBks = bks.filter(b => b.uid === user.uid && new Date(b.date).getMonth() === selD.getMonth() && new Date(b.date).getFullYear() === selD.getFullYear()).length;
 				if(monthlyBks >= 2) return alert("Ai atins limita maximă de 2 programări pe lună!");
 				execSave(v.name, v.phone, user.uid);
 			});
