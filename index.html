@@ -191,11 +191,16 @@
 		  <div id="authMsg">Vă rugăm să vă autentificați.</div>
 		  <div id="myStats"></div>
 		</div>
-
-		<div class="card" id="admSel" style="display:none;">
-		  <h3>👤 Selectează Voluntar (Admin)</h3>
-		  <select id="vSel"></select>
-		</div>
+	<div class="card" id="admSel" style="display:none;">
+	  <h3>👤 Selectează Voluntar</h3>
+	  <div style="position: relative; margin-bottom: 10px;">
+		<input type="text" id="vSelSearch" placeholder="🔍 Caută voluntar după nume..." oninput="filterVolDropdown()" style="width: 100%; padding-right: 35px; margin-bottom: 0;">
+		<button onclick="clearVolSearch()" title="Șterge căutarea" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: #94a3b8; padding: 5px; display: flex; align-items: center; justify-content: center;">
+		  ✖
+		</button>
+	  </div>
+	  <select id="vSel"></select>
+	</div>
 		<div class="card" id="admDayBks" style="display:none;">
 		  <h3>📋 Programările Zilei Selectate</h3>
 		  <div id="dayBksList" style="font-size: 0.85rem; color: #64748b;">Selectează o zi din calendar...</div>
@@ -320,7 +325,7 @@
       </div>
     </div>
   </div>
-</main>
+ </main>
 </div>
 	<div id="printArea"></div>
 	<script>
@@ -1373,20 +1378,40 @@
 
 
 	  // 2. Sincronizare Voluntari (Pentru listele Adminului)
-		function listenToAllVolunteers() {
+		  function filterVolDropdown() {
+		const searchTxt = document.getElementById("vSelSearch").value.toLowerCase();
+		const sel = document.getElementById("vSel");
+		if (!sel) return;
+
+		// Sortăm alfabetic toți voluntarii
+		const sortedVols = [...vols].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+		// Filtrăm pe baza textului introdus în căsuța de căutare
+		const filteredVols = sortedVols.filter(v => (v.name || "").toLowerCase().includes(searchTxt));
+
+		// Refacem lista dropdown doar cu voluntarii găsiți
+		sel.innerHTML = filteredVols.map(v => `<option value="${v.id}" data-phone="${v.phone}">${v.name}</option>`).join('');
+		
+		// (Opțional) Mesaj dacă nu se găsește nimeni
+		if (filteredVols.length === 0) {
+			sel.innerHTML = `<option value="" disabled selected>Nu s-a găsit niciun voluntar</option>`;
+		}
+		}
+		function clearVolSearch() {
+		const searchInput = document.getElementById("vSelSearch");
+		if (searchInput) {
+			searchInput.value = ""; // Golește textul
+			filterVolDropdown();    // Reface lista dropdown completă
+		}
+	}
+	function listenToAllVolunteers() {
 		db.ref('volunteers').on('value', s => { 
 			vols = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
 			rVol();
-			
-			const sel = document.getElementById("vSel");
-			if(sel) {
-				// Sortăm alfabetic după nume
-				const sortedVols = [...vols].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-				sel.innerHTML = sortedVols.map(v => `<option value="${v.id}" data-phone="${v.phone}">${v.name}</option>`).join('');
-			}
+			// Populăm dropdown-ul folosind noua funcție de filtrare
+			filterVolDropdown(); 
 		});
 	}
-
 	function restoreData(event) {
 		const file = event.target.files[0];
 		if (!file) return;
