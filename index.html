@@ -320,11 +320,15 @@
   <aside>
     <div id="maintBar">⚠️ SISTEM ÎN MENTENANȚĂ</div>
 
-    <div class="card" id="uAuth">
-      <h3>👤 Profil</h3>
-      <div id="authMsg" style="color:var(--gray-500);font-size:.875rem;">Vă rugăm să vă autentificați.</div>
-      <div id="myStats"></div>
-    </div>
+	<div class="card" id="uAuth">
+		  <h3>👤 Profil</h3>
+		  <div id="authMsg" style="color:var(--gray-500);font-size:.875rem;">Vă rugăm să vă autentificați.</div>
+		  <div id="myStats"></div>
+		  
+		  <a href="https://mrdoraj.github.io/voluntari-smurd/calendar/" target="_blank" class="btn btn-outline" style="width:100%; margin-top:15px; text-decoration:none; display:flex; justify-content:center; align-items:center; gap:6px;">
+			📅 Vezi Calendarul Public
+		  </a>
+		</div>
 
     <div class="card" id="admSel" style="display:none;">
       <h3>👤 Selectează Voluntar</h3>
@@ -385,7 +389,8 @@
             <button id="btnMaintOff" class="btn" onclick="tglM(false)">🟢 Dezactivat</button>
           </div>
           <div class="action-grid">
-            <button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
+			<button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
+			<button class="btn btn-primary" onclick="exportPublicCalendar()">🌐 Exportă Web (HTML)</button>
             <button class="btn btn-outline" onclick="exportData()">📥 Backup JSON</button>
             <button class="btn btn-outline" onclick="exportCSV()">📊 Export CSV</button>
             <input type="file" id="importFile" accept=".json" style="display:none" onchange="restoreData(event)">
@@ -466,11 +471,26 @@
           <button class="btn btn-outline" onclick="generateMonthlyChart()">Generează Grafic</button>
           <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
         </div>
-      </div>
-    </div>
+		<div class="card">
+          <h3>❌ Absențe per Voluntar</h3>
+          <p style="font-size:.78rem;color:var(--gray-500);margin:0 0 10px 0;">Topul voluntarilor cu absențe înregistrate</p>
+          
+          <div class="audit-fc">
+            <div class="audit-fg" style="margin-bottom: 10px; max-width: 300px;">
+              <select id="absMonthFilter" onchange="generateAbsenceChart()">
+                <option value="">Toate lunile</option>
+              </select>
+              <button class="btn btn-outline" onclick="document.getElementById('absMonthFilter').value=''; generateAbsenceChart();" title="Reset">✕</button>
+            </div>
+          </div>
+
+          <button class="btn btn-danger" onclick="generateAbsenceChart()">Generează Grafic Absențe</button>
+          <div class="chart-wrap"><canvas id="absenceChart"></canvas></div>
+        </div>
+      </div>		
+     </div>
   </main>
 </div>
-
 <div id="printArea"></div>
 
 <!-- GDPR -->
@@ -533,7 +553,7 @@ function removeInactivityListeners(){['mousemove','mousedown','keypress','touchm
 ============================================================ */
 let curD=new Date(),selD=null,selS=null,selE=null;
 let bks=[],vols=[],isA=false,isM=false;
-let statsChartInst=null,monthlyChartInst=null;
+let statsChartInst=null,monthlyChartInst=null,absenceChartInst=null;
 const hrs=[];for(let i=8;i<=22;i++)hrs.push(`${String(i).padStart(2,'0')}:00`);
 
 /* ============================================================
@@ -874,11 +894,31 @@ function changeAuditPage(dir){const t=Math.ceil(auditFiltered.length/AUDIT_PAGE_
 
 function populateMonthFilter(){
   const mN=["Ianuarie","Februarie","Martie","Aprilie","Mai","Iunie","Iulie","August","Septembrie","Octombrie","Noiembrie","Decembrie"];
-  const sel=document.getElementById("bMonthFilter");if(!sel)return;
-  const cv=sel.value;sel.innerHTML='<option value="">Toate lunile</option>';
-  const um=new Set();bks.forEach(b=>{const d=new Date(b.date);um.add(`${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`);});
-  Array.from(um).sort((a,b)=>{const[m1,y1]=a.split('-'),[m2,y2]=b.split('-');if(y1!==y2)return y2-y1;return m2-m1;}).forEach(my=>{const[m,y]=my.split('-');sel.innerHTML+=`<option value="${my}">${mN[parseInt(m)-1]} ${y}</option>`;});
-  if(cv)sel.value=cv;
+  
+  // Selectăm ambele dropdown-uri
+  const selAudit = document.getElementById("bMonthFilter");
+  const selAbs = document.getElementById("absMonthFilter");
+  
+  let html = '<option value="">Toate lunile</option>';
+  const um = new Set();
+  
+  bks.forEach(b => {
+    const d = new Date(b.date);
+    um.add(`${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`);
+  });
+  
+  Array.from(um).sort((a,b) => {
+    const [m1,y1] = a.split('-'), [m2,y2] = b.split('-');
+    if(y1 !== y2) return y2 - y1;
+    return m2 - m1;
+  }).forEach(my => {
+    const [m,y] = my.split('-');
+    html += `<option value="${my}">${mN[parseInt(m)-1]} ${y}</option>`;
+  });
+  
+  // Aplicăm opțiunile păstrând selecția curentă (dacă există)
+  if(selAudit) { const cv1 = selAudit.value; selAudit.innerHTML = html; if(cv1) selAudit.value = cv1; }
+  if(selAbs)   { const cv2 = selAbs.value;   selAbs.innerHTML = html;   if(cv2) selAbs.value = cv2; }
 }
 
 /* ============================================================
@@ -900,6 +940,97 @@ function prepPrint(){
   }
   while(cc%7!==0){html+=`<td class="empty-cell"></td>`;cc++;}
   html+=`</tr></tbody></table>`;pa.innerHTML=html;setTimeout(()=>window.print(),500);
+}
+function exportPublicCalendar() {
+  const luna = document.getElementById("mLab").innerText;
+  const y = curD.getFullYear(), m = curD.getMonth();
+  const fd = new Date(y, m, 1).getDay(), offset = fd === 0 ? 6 : fd - 1;
+  const last = new Date(y, m + 1, 0).getDate();
+
+  // Generăm timestamp-ul formatat în limba română (ex: 22.03.2026, 17:30)
+  const timestamp = new Date().toLocaleString('ro-RO', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+
+  // 1. Construim tabelul și adăugăm paragraful cu ultima actualizare sub titlu
+  let tableHtml = `<h2 style="text-align:center;font-size:22px;margin-bottom:5px;text-transform:uppercase;color:#1e3a8a;font-family:sans-serif;">SITUAȚIA PROGRAMĂRILOR VOLUNTARILOR SMURD – ${luna}</h2>`;
+  
+  // Aici este linia nouă cu timestamp-ul:
+  tableHtml += `<p style="text-align:center;font-size:13px;color:#64748b;margin-top:0;margin-bottom:20px;">🔄 Ultima actualizare: <strong>${timestamp}</strong></p>`;
+  
+  tableHtml += `<table class="print-table"><thead><tr><th>Luni</th><th>Marți</th><th>Miercuri</th><th>Joi</th><th>Vineri</th><th class="weekend">Sâmbătă</th><th class="weekend">Duminică</th></tr></thead><tbody><tr>`;
+
+  let cc = 0;
+  for(let i=0; i<offset; i++) { tableHtml += `<td class="empty-cell"></td>`; cc++; }
+  for(let d=1; d<=last; d++) {
+    if(cc>0 && cc%7===0) tableHtml += `</tr><tr>`;
+    const dS = new Date(y,m,d).toDateString();
+    const dB = bks.filter(b => new Date(b.date).toDateString() === dS).sort((a,b) => a.start.localeCompare(b.start));
+    const dow = new Date(y,m,d).getDay(), isW = dow === 0 || dow === 6;
+
+    tableHtml += `<td><span class="${isW?'ziua weekend-day':'ziua'}">${d}</span>`;
+    dB.forEach(b => {
+      if(b.noShow) tableHtml += `<div class="tura absent"><del><b>${b.start}-${b.end}</b>: ${b.name}</del></div>`;
+      else tableHtml += `<div class="tura"><b>${b.start}-${b.end}</b>: ${b.name}</div>`;
+    });
+    tableHtml += `</td>`; cc++;
+  }
+  while(cc%7 !== 0) { tableHtml += `<td class="empty-cell"></td>`; cc++; }
+  tableHtml += `</tr></tbody></table>`;
+
+  // 2. Împachetăm tabelul într-un fișier HTML complet, cu design gata făcut pentru site
+  const fullHtml = `<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendar SMURD - ${luna}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: #f8fafc; padding: 20px; color: #0f172a; margin: 0; }
+    .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .print-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .print-table th, .print-table td { border: 1px solid #cbd5e1; vertical-align: top; }
+    .print-table th { background-color: #e2e8f0; font-size: 14px; padding: 12px 0; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; }
+    .print-table th.weekend { background-color: #bfdbfe; color: #1e3a8a; }
+    .print-table td { height: 120px; overflow: hidden; padding: 8px; transition: background 0.2s; }
+    .print-table td:hover { background-color: #f1f5f9; }
+    .print-table .empty-cell { background-color: #f8fafc; pointer-events: none; }
+    .ziua { font-weight: bold; font-size: 15px; display: block; margin-bottom: 8px; padding: 4px 6px; background-color: #1d4ed8; color: #fff; border-radius: 6px; text-align: center; }
+    .ziua.weekend-day { background-color: #1e40af; }
+    .tura { margin-bottom: 6px; line-height: 1.3; border-bottom: 1px dotted #cbd5e1; padding-bottom: 4px; font-size: 13px; }
+    .tura:last-child { border-bottom: none; }
+    .tura.absent { color: #94a3b8; opacity: .7; }
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      .print-table th { font-size: 10px; padding: 6px 0; }
+      .print-table td { height: 100px; padding: 4px; }
+      .tura { font-size: 10px; }
+      .ziua { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    ${tableHtml}
+  </div>
+</body>
+</html>`;
+
+  // 3. Generăm descărcarea fișierului
+  const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "index.html"; 
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast('Fișierul web a fost descărcat! Îl poți încărca pe GitHub.', 'success');
 }
 
 /* ============================================================
@@ -986,6 +1117,75 @@ function generateMonthlyChart(){
   if(monthlyChartInst)monthlyChartInst.destroy();
   monthlyChartInst=new Chart(ctx,{type:'line',data:{labels:months.map(m=>m.label),datasets:[{data:counts,borderColor:'#1d4ed8',backgroundColor:'rgba(29,78,216,.1)',tension:.4,fill:true,pointBackgroundColor:'#1d4ed8',pointRadius:5,pointHoverRadius:7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0,font:{family:'JetBrains Mono',size:11}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{family:'DM Sans',size:11,weight:'600'}},grid:{display:false}}}}});
   showToast('Grafic lunar generat.','info');
+}
+function generateAbsenceChart() {
+  const map = {};
+  const fm = document.getElementById("absMonthFilter")?.value || "";
+  
+  // 1. Filtrăm datele în funcție de lună (dacă este selectată una)
+  let filteredBks = bks;
+  if (fm) {
+    const [fM, fY] = fm.split("-");
+    filteredBks = bks.filter(b => {
+      const d = new Date(b.date);
+      return d.getFullYear() == fY && (d.getMonth() + 1) == parseInt(fM);
+    });
+  }
+
+  // 2. Extragem doar absențele
+  filteredBks.forEach(b => {
+    if (b.noShow === true) {
+      const uid = b.uid || b.phone;
+      if (!map[uid]) map[uid] = { name: b.name || 'N/A', absences: 0 };
+      map[uid].absences += 1;
+    }
+  });
+
+  const entries = Object.values(map).sort((a, b) => b.absences - a.absences);
+  const ctx = document.getElementById('absenceChart').getContext('2d');
+
+  if (absenceChartInst) absenceChartInst.destroy();
+
+  if (entries.length === 0) {
+    showToast('Nu există nicio absență înregistrată pentru perioada selectată.', 'success');
+    return;
+  }
+
+  // 3. Desenăm graficul
+  absenceChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: entries.map(e => e.name.split(' ')[0]),
+      datasets: [{
+        label: 'Absențe',
+        data: entries.map(e => e.absences),
+        backgroundColor: 'rgba(220, 38, 38, 0.85)',
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.parsed.y} absențe` } }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, font: { family: 'JetBrains Mono', size: 11 } },
+          grid: { color: 'rgba(0,0,0,0.04)' }
+        },
+        x: {
+          ticks: { font: { family: 'DM Sans', size: 11, weight: '600' } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+  
+  showToast('Graficul de absențe a fost actualizat.', 'info');
 }
 
 /* ============================================================
