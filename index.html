@@ -314,21 +314,19 @@
     <p id="suMsg" style="text-align:center;margin-top:13px;font-weight:600;font-size:.855rem;"></p>
   </div>
 </div>
-
 <!-- MAIN -->
 <div class="container no-print">
   <aside>
     <div id="maintBar">⚠️ SISTEM ÎN MENTENANȚĂ</div>
-
 	<div class="card" id="uAuth">
 		  <h3>👤 Profil</h3>
 		  <div id="authMsg" style="color:var(--gray-500);font-size:.875rem;">Vă rugăm să vă autentificați.</div>
 		  <div id="myStats"></div>
+		  
 		<a id="publicCalLink" href="https://mrdoraj.github.io/voluntari-smurd/calendar/" target="_blank" class="btn btn-outline" style="width:100%; margin-top:15px; text-decoration:none; display:none; justify-content:center; align-items:center; gap:6px;">
 		  📅 Vezi Calendarul Public
 		</a>
 		</div>
-
     <div class="card" id="admSel" style="display:none;">
       <h3>👤 Selectează Voluntar</h3>
       <div class="vsw">
@@ -618,13 +616,14 @@ auth.onAuthStateChanged(u=>{
         document.getElementById("uAuth").style.display="none";
         document.getElementById("admDayBks").style.display="block";
         lk(false);loadPendingVolunteers();listenToAllVolunteers();
-      } else {
+		} else {
         document.getElementById("admStatus").innerHTML=`<button class="btn btn-outline" onclick="admOut()">Deconectare</button>`;
         checkVolunteerStatus(u);
-      }
+        document.getElementById("publicCalLink").style.display = "flex";
+		}
       rCal();rVol();applyMaintUI();
     });
-  } else {
+} else {
     removeInactivityListeners();isA=false;
     document.getElementById("admStatus").innerHTML=`<button class="btn btn-success" onclick="openSignUpModal()">📝 Înregistrare</button><button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>`;
     document.getElementById("admP").style.display="none";
@@ -632,6 +631,7 @@ auth.onAuthStateChanged(u=>{
     document.getElementById("uAuth").style.display="block";
     document.getElementById("admDayBks").style.display="none";
     document.getElementById("authMsg").innerHTML=`<span style="color:var(--gray-500);">Vă rugăm să vă autentificați.</span>`;
+    document.getElementById("publicCalLink").style.display = "none";
     lk(true);rCal();applyMaintUI();
   }
 });
