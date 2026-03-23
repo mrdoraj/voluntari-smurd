@@ -728,14 +728,17 @@ function rSlt(){
     g.appendChild(s);
   });
 }
-
-function showDayBks(){
-  const c=document.getElementById("dayBksList");
-  if(!selD){c.innerHTML='<li style="color:var(--gray-500);font-size:.84rem;">Selectează o zi din calendar...</li>';return;}
-  const dBs=bks.filter(b=>new Date(b.date).toDateString()===selD.toDateString()).sort((a,b)=>a.start.localeCompare(b.start));
-  if(dBs.length===0){c.innerHTML='<li style="color:var(--gray-500);font-size:.84rem;">Nicio programare pentru această zi.</li>';return;}
-  c.innerHTML=dBs.map(b=>`<li class="stat-row"><span style="font-weight:700;">${b.name}</span><span class="stat-time">${b.start} – ${b.end}</span></li>`).join('');
-}
+	function showDayBks(){
+	  const c=document.getElementById("dayBksList");
+	  if(!selD){c.innerHTML='<li style="color:var(--gray-500);font-size:.84rem;">Selectează o zi din calendar...</li>';return;}
+	  const dBs=bks.filter(b=>new Date(b.date).toDateString()===selD.toDateString()).sort((a,b)=>a.start.localeCompare(b.start));
+	  if(dBs.length===0){c.innerHTML='<li style="color:var(--gray-500);font-size:.84rem;">Nicio programare pentru această zi.</li>';return;}
+	  c.innerHTML=dBs.map(b => {
+	  const nameHtml = b.noShow ? `<del style="color:var(--gray-400); font-weight:700;">${b.name}</del>` : `<span style="font-weight:700;">${b.name}</span>`;
+	  const timeHtml = b.noShow ? `<span class="stat-time" style="text-decoration:line-through; opacity:0.6;">${b.start} – ${b.end}</span>` : `<span class="stat-time">${b.start} – ${b.end}</span>`;
+	  return `<li class="stat-row">${nameHtml}${timeHtml}</li>`;
+	}).join('');
+	}
 
 /* ============================================================
    SAVE BOOKING
@@ -834,10 +837,15 @@ function searchMyStats(p){
   const my=bks.filter(b=>b.phone===p&&new Date(b.date)>=today).sort((a,b)=>new Date(a.date)-new Date(b.date));
   let html="";
   if(my.length>0){
-    html=`<p style="font-size:.78rem;font-weight:700;color:var(--primary);margin:10px 0 6px 0;">📅 Programările tale viitoare:</p><ul style="list-style:none;padding:0;margin:0;">`;
-    my.forEach(b=>{const d=new Date(b.date).toLocaleDateString('ro-RO',{weekday:'short',day:'numeric',month:'short'});html+=`<li class="stat-row"><span>🗓️ <b>${d}</b></span><span class="stat-time">${b.start} – ${b.end}</span></li>`;});
+    html=`<p style="font-size:.78rem;font-weight:700;color:var(--primary);margin:10px 0 6px 0;">📅 Programările tale:</p><ul style="list-style:none;padding:0;margin:0;">`;
+    my.forEach(b => {
+  const d = new Date(b.date).toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' });
+  const dateHtml = b.noShow ? `<del style="color:var(--gray-400);">🗓️ <b>${d}</b></del> <span style="font-size:0.7rem;color:var(--danger);font-weight:bold;">(Absent)</span>` : `<span>🗓️ <b>${d}</b></span>`;
+  const timeHtml = b.noShow ? `<span class="stat-time" style="text-decoration:line-through; opacity:0.6;">${b.start} – ${b.end}</span>` : `<span class="stat-time">${b.start} – ${b.end}</span>`;
+  html += `<li class="stat-row">${dateHtml}${timeHtml}</li>`;
+});
     html+=`</ul>`;
-  } else html=`<p style="font-size:.8rem;color:var(--gray-500);margin-top:10px;">Nu ai nicio programare viitoare.</p>`;
+  } else html=`<p style="font-size:.8rem;color:var(--gray-500);margin-top:10px;">Nu ai nicio programare.</p>`;
   document.getElementById("myStats").innerHTML=html;
 }
 
@@ -1104,7 +1112,8 @@ function generateChart(){
   if(entries.length===0){showToast('Nu există date pentru această lună.','info');return;}
   const ctx=document.getElementById('statsChart').getContext('2d');
   if(statsChartInst)statsChartInst.destroy();
-  statsChartInst=new Chart(ctx,{type:'bar',data:{labels:entries.map(e=>e.name.split(' ')[0]),datasets:[{label:'Ore',data:entries.map(e=>e.hours),backgroundColor:entries.map((_,i)=>`hsla(${215-i*18},75%,${52+i*2}%,.88)`),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y} ore`}}},scales:{y:{beginAtZero:true,ticks:{font:{family:'JetBrains Mono',size:11}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{family:'DM Sans',size:11,weight:'600'}},grid:{display:false}}}}});
+  statsChartInst=new Chart(ctx,{type:'bar',data:{labels: entries.map(e => { let p = e.name.trim().split(/\s+/); return p.length > 1 ? p[0] + ' ' + p[1][0].toUpperCase() + '.' : p[0];
+}),datasets:[{label:'Ore',data:entries.map(e=>e.hours),backgroundColor:entries.map((_,i)=>`hsla(${215-i*18},75%,${52+i*2}%,.88)`),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y} ore`}}},scales:{y:{beginAtZero:true,ticks:{font:{family:'JetBrains Mono',size:11}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{family:'DM Sans',size:11,weight:'600'}},grid:{display:false}}}}});
   showToast('Grafic ore generat.','info');
 }
 
@@ -1155,13 +1164,13 @@ function generateAbsenceChart() {
   absenceChartInst = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: entries.map(e => e.name.split(' ')[0]),
-      datasets: [{
-        label: 'Absențe',
-        data: entries.map(e => e.absences),
-        backgroundColor: 'rgba(220, 38, 38, 0.85)',
-        borderRadius: 6,
-        borderSkipped: false
+      labels: entries.map(e => { let p = e.name.trim().split(/\s+/); return p.length > 1 ? p[0] + ' ' + p[1][0].toUpperCase() + '.' : p[0];
+}),   datasets: [{
+      label: 'Absențe',
+      data: entries.map(e => e.absences),
+      backgroundColor: 'rgba(220, 38, 38, 0.85)',
+      borderRadius: 6,
+      borderSkipped: false
       }]
     },
     options: {
