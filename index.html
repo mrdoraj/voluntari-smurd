@@ -6,6 +6,9 @@
   <title>SMURD Programări voluntari</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/ro.js"></script>
   <style>
     /* ============================================================
        DESIGN SYSTEM
@@ -484,11 +487,21 @@
       <div id="tab-dash" class="tab-content active">
         <div class="card" style="border:2px solid var(--warning);">
           <h3>⚙️ Panou Administrator</h3>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:11px;background:var(--gray-50);border-radius:var(--radius-sm);">
-            <span style="font-weight:700;font-size:.8rem;color:var(--gray-600);">MENTENANȚĂ:</span>
-            <button id="btnMaintOn" class="btn" onclick="tglM(true)">🔴 Activat</button>
-            <button id="btnMaintOff" class="btn" onclick="tglM(false)">🟢 Dezactivat</button>
-          </div>
+		<div style="margin-bottom:14px;padding:12px;background:var(--gray-50);border-radius:var(--radius-sm); border:1px solid var(--border);">
+		  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+			<span style="font-weight:700;font-size:.8rem;color:var(--gray-600); width:100%;">MENTENANȚĂ MANUALĂ:</span>
+			<button id="btnMaintOn" class="btn" style="flex:1; min-width:120px;" onclick="tglM(true)">🔴 Activat</button>
+			<button id="btnMaintOff" class="btn" style="flex:1; min-width:120px;" onclick="tglM(false)">🟢 Dezactivat</button>
+		  </div>
+		  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px dashed var(--gray-300); padding-top:12px;">
+			<span style="font-weight:700;font-size:.8rem;color:var(--gray-600); width:100%;">OPRIRE AUTOMATĂ (PROGRAMATĂ):</span>
+			<div class="vsw" style="margin-bottom:0; flex:1; min-width:120px; position: relative;">
+			  <input type="text" id="maintSchedule" placeholder="📅" style="margin-bottom:0; padding:8px 28px 8px 8px; font-size:0.85rem; width:100%; background:var(--surface); cursor:pointer; text-align:center; font-weight:600;">
+			  <button class="vsw-clr" onclick="clearMaintSchedule()" title="Șterge data" style="right:6px; top:50%; transform:translateY(-50%); position:absolute; background:var(--gray-200); width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6rem; color:var(--gray-600); border:none; padding:0;">✕</button>
+			</div>
+			<button id="btnSchedMaint" class="btn btn-outline" onclick="scheduleMaintOff()" style="flex:1; min-width:140px;">⏰ Oprește automat</button>
+		  </div>
+		</div>
           <div class="action-grid">
 			<button class="btn btn-success" onclick="prepPrint()">🖨️ Printează Luna</button>
 			<button class="btn btn-primary" onclick="exportPublicCalendar()">🌐 Exportă Web (HTML)</button>
@@ -504,9 +517,7 @@
           <h3>📋 Cereri Aprobare</h3>
           <div id="pendingVols"></div>
         </div>
-
       </div>
-
       <!-- TAB VOLUNTARI -->
       <div id="tab-vol" class="tab-content">
         <div class="card">
@@ -571,7 +582,6 @@
           </div>
         </div>
       </div>
-
       <!-- TAB STATISTICI (NOU) -->
       <div id="tab-stats" class="tab-content">
         <div class="card">
@@ -598,7 +608,6 @@
               <button class="btn btn-outline" onclick="document.getElementById('absMonthFilter').value=''; generateAbsenceChart();" title="Reset">✕</button>
             </div>
           </div>
-
           <button class="btn btn-danger" onclick="generateAbsenceChart()">Generează Grafic Absențe</button>
           <div class="chart-wrap"><canvas id="absenceChart"></canvas></div>
         </div>
@@ -607,7 +616,6 @@
   </main>
 </div>
 <div id="printArea"></div>
-
 <!-- GDPR -->
 <div id="cookieBanner" style="display:none;">
   <div style="max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:13px;">
@@ -617,7 +625,6 @@
     <button class="btn btn-primary" onclick="acceptGDPR()" style="padding:10px 18px;flex-shrink:0;">Am înțeles și accept</button>
   </div>
 </div>
-
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
@@ -964,7 +971,7 @@ function toggleNoShow(bookingId,isAbsent){
     .then(()=>showToast(isAbsent?'Marcat ca Absent.':'Marcat ca Prezent.',isAbsent?'warning':'success'))
     .catch(err=>showToast('Eroare prezență: '+err.message,'error'));
 }
-function tglM(v){db.ref('settings/maintenance').set(v);}
+
 function resetPass(email){
   if(!email){showToast('Voluntarul nu are email salvat.','warning');return;}
   if(confirm("Trimiteți email de resetare către: "+email+"?"))
@@ -1349,15 +1356,131 @@ function applyMaintUI(){
 /* ============================================================
    FIREBASE REALTIME LISTENERS
 ============================================================ */
-db.ref('settings/maintenance').on('value',s=>{
-  isM=s.val();applyMaintUI();
-  if(isM&&auth.currentUser&&!isA)auth.signOut().then(()=>showToast('Sistem intrat în mentenanță. Ai fost deconectat.','warning',6000));
-  const bOn=document.getElementById("btnMaintOn"),bOff=document.getElementById("btnMaintOff");
-  if(bOn&&bOff){
-    bOn.style.cssText=`background:${isM?'#dc2626':'#9ca3af'};color:#fff;border:none;opacity:${isM?'1':'.5'};box-shadow:${isM?'0 0 12px rgba(220,38,38,.5)':'none'};`;
-    bOff.style.cssText=`background:${!isM?'#15803d':'#9ca3af'};color:#fff;border:none;opacity:${!isM?'1':'.5'};box-shadow:${!isM?'0 0 12px rgba(21,128,61,.5)':'none'};`;
-  }
+/* ============================================================
+   MAINTENANCE SCHEDULING & SERVER TIME LOGIC
+============================================================ */
+let maintUntil = null;
+let serverTimeOffset = 0;
+let maintInterval = null;
+
+// 1. Aflăm diferența dintre ora calculatorului și ora serverului Google/Firebase
+db.ref('.info/serverTimeOffset').on('value', s => {
+  serverTimeOffset = s.val() || 0;
+  if(typeof isM !== 'undefined') evaluateMaintenance();
 });
+
+// 2. Ascultăm setările de mentenanță direct din baza de date
+db.ref('settings').on('value', s => {
+  const data = s.val() || {};
+  isM = !!data.maintenance;
+  maintUntil = data.maintenanceUntil || null;
+  evaluateMaintenance();
+});
+
+// 3. Funcția NOUĂ de activare/dezactivare manuală
+function tglM(v) {
+  const updates = { maintenance: v };
+  if (!v) updates.maintenanceUntil = null; 
+  db.ref('settings').update(updates);
+}
+
+// --- Inițializare Flatpickr pentru format european ---
+let fpMaint;
+document.addEventListener("DOMContentLoaded", () => {
+  fpMaint = flatpickr("#maintSchedule", {
+    enableTime: true,
+    dateFormat: "d/m/Y H:i", 
+    time_24hr: true,         
+    locale: "ro",            
+    allowInput: false,
+	disableMobile: true	
+  });
+});
+
+// Funcția pentru butonul X din calendarul Flatpickr
+function clearMaintSchedule() {
+  if (fpMaint) fpMaint.clear();
+}
+
+// 4. Funcția care setează ora de oprire automată (Folosind Flatpickr)
+function scheduleMaintOff() {
+  if (!fpMaint || fpMaint.selectedDates.length === 0) { 
+    showToast("Selectează data și ora din calendar!", "warning"); 
+    return; 
+  }
+  
+  const targetTime = fpMaint.selectedDates[0].getTime();
+  const currentServerTime = Date.now() + serverTimeOffset;
+
+  if (targetTime <= currentServerTime) { 
+    showToast("Ora selectată trebuie să fie în viitor!", "error"); 
+    return; 
+  }
+
+  const displayStr = fpMaint.formatDate(fpMaint.selectedDates[0], "d/m/Y H:i");
+
+  db.ref('settings').update({
+    maintenance: true,
+    maintenanceUntil: targetTime
+  }).then(() => {
+    showToast(`Sistemul va fi deblocat automat la ${displayStr}`, 'success');
+    fpMaint.clear(); 
+  });
+}
+
+// 5. Creierul sistemului: verifică în mod constant dacă timpul a expirat
+function evaluateMaintenance() {
+  const currentServerTime = Date.now() + serverTimeOffset;
+
+  if (isM && maintUntil && currentServerTime >= maintUntil) {
+    isM = false; 
+    if (isA) tglM(false); 
+  }
+
+  applyMaintUIUpdates();
+
+  clearInterval(maintInterval);
+  if (isM && maintUntil) {
+    maintInterval = setInterval(() => {
+      const nowServer = Date.now() + serverTimeOffset;
+      if (nowServer >= maintUntil) {
+        clearInterval(maintInterval);
+        evaluateMaintenance(); 
+      }
+    }, 1000);
+  }
+}
+
+// 6. Actualizăm interfața (butoane roșii/verzi și ascundem panourile)
+function applyMaintUIUpdates() {
+  applyMaintUI(); 
+  
+  if (isM && auth.currentUser && !isA) {
+    auth.signOut().then(() => showToast('Sistem în mentenanță. Ai fost deconectat.', 'warning', 6000));
+  }
+  
+  const bOn = document.getElementById("btnMaintOn");
+  const bOff = document.getElementById("btnMaintOff");
+  const schedBtn = document.getElementById("btnSchedMaint");
+
+  if (bOn && bOff) {
+    bOn.style.cssText = `background:${isM ? '#dc2626' : '#9ca3af'};color:#fff;border:none;opacity:${isM ? '1' : '.5'};box-shadow:${isM ? '0 0 12px rgba(220,38,38,.5)' : 'none'};`;
+    bOff.style.cssText = `background:${!isM ? '#15803d' : '#9ca3af'};color:#fff;border:none;opacity:${!isM ? '1' : '.5'};box-shadow:${!isM ? '0 0 12px rgba(21,128,61,.5)' : 'none'};`;
+  }
+
+  if (schedBtn) {
+    if (isM && maintUntil) {
+      const displayStr = new Date(maintUntil).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+      schedBtn.innerText = "⏰ Auto-deblocare: " + displayStr;
+      schedBtn.classList.add("btn-warning");
+      schedBtn.classList.remove("btn-outline");
+    } else {
+      schedBtn.innerText = "⏰ Oprește automat";
+      schedBtn.classList.add("btn-outline");
+      schedBtn.classList.remove("btn-warning");
+    }
+  }
+}
 
 function filterVolDropdown(){
   const st=document.getElementById("vSelSearch").value.toLowerCase();
