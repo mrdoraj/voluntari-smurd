@@ -316,26 +316,66 @@
     ::-webkit-scrollbar-track{background:transparent;}
     ::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:3px;}
     ::-webkit-scrollbar-thumb:hover{background:var(--gray-400);}
+	
+	/* ============================================================
+	   LANDING PAGE (MODERN HERO)
+	============================================================ */
+	#landingView {
+	  display: none; /* Ascuns implicit, controlat de JS */
+	  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+	  position: relative;
+	  overflow: hidden;
+	  min-height: 100vh;
+	  width: 100%;
+	}
+	#landingView::before {
+	  content: ''; position: absolute; top: -50%; right: -20%;
+	  width: 800px; height: 800px;
+	  background: radial-gradient(circle, rgba(29, 78, 216, 0.15) 0%, transparent 70%); border-radius: 50%;
+	}
+	#landingView::after {
+	  content: ''; position: absolute; bottom: -30%; left: -10%;
+	  width: 600px; height: 600px;
+	  background: radial-gradient(circle, rgba(220, 38, 38, 0.12) 0%, transparent 70%); border-radius: 50%;
+	}
+	.v1-content {
+	  max-width: 1200px; margin: 0 auto; padding: 80px 40px;
+	  position: relative; z-index: 1; display: flex; flex-direction: column;
+	  align-items: center; text-align: center; justify-content: center; min-height: 100vh;
+	}
+	.v1-logo {
+	  width: 120px; height: 120px; background: linear-gradient(135deg, var(--danger), #b91c1c);
+	  border-radius: 24px; display: flex; align-items: center; justify-content: center;
+	  font-size: 4rem; margin-bottom: 30px; box-shadow: 0 10px 40px rgba(220, 38, 38, 0.4);
+	  animation: floatHero 3s ease-in-out infinite;
+	}
+	@keyframes floatHero {
+	  0%, 100% { transform: translateY(0px); }
+	  50% { transform: translateY(-10px); }
+	}
+	.v1-title { font-size: 3.5rem; font-weight: 800; color: white; margin-bottom: 20px; letter-spacing: -0.03em; line-height: 1.1; }
+	.v1-subtitle { font-size: 1.2rem; color: rgba(255, 255, 255, 0.7); margin-bottom: 50px; max-width: 600px; }
+	.v1-actions { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+	.v1-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-top: 80px; width: 100%; }
+	.v1-feature {
+	  background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px);
+	  border: 1px solid rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 16px; text-align: center;
+	}
+	.v1-feature-icon { font-size: 2.5rem; margin-bottom: 15px; }
+	.v1-feature h3 { color: white; font-size: 1.1rem; margin-bottom: 10px; }
+	.v1-feature p { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; line-height: 1.5; margin: 0;}
+	@media(max-width: 768px) {
+	  .v1-title { font-size: 2.5rem; }
+	  .v1-subtitle { font-size: 1rem; }
+	  .v1-features { grid-template-columns: 1fr; gap: 15px; }
+	  .v1-content { padding: 40px 20px; }
+	}
+	
   </style>
 </head>
 <body>
-
 <!-- TOAST -->
 <div id="toastContainer"></div>
-
-<!-- HEADER -->
-<header class="header no-print">
-  <div class="hbrand">
-    <div class="hlogo">🚒</div>
-    <div>
-      <div class="htitle">Programări Voluntari</div>
-      <div class="hsub">SMURD · Sistem Intern</div>
-    </div>
-  </div>
-  <div id="admStatus" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"></div>
-</header>
-
-<!-- MAINTENANCE -->
 <div id="hardMaintScreen">
   <div style="font-size:3.5rem;margin-bottom:1rem;">🛠️</div>
   <h2 style="font-size:1.5rem;font-weight:800;margin:0 0 10px 0;">Sistem în Mentenanță</h2>
@@ -418,7 +458,53 @@
     <button class="btn btn-primary" style="width:100%; margin-top: 15px;" onclick="closeUserInfoModal()">Închide</button>
   </div>
 </div>
-<!-- MAIN -->
+
+<div id="landingView">
+  <div class="v1-content">
+    <div class="v1-logo">🚒</div>
+    <h1 class="v1-title">VOLUNTARI SMURD</h1>
+    <p class="v1-subtitle">Platformă de gestiune a programărilor voluntarilor.</p>
+    
+    <div class="v1-actions">
+      <button class="btn" style="background: linear-gradient(135deg, var(--primary), #3b82f6); color: white; padding: 14px 28px; font-size: 1rem;" onclick="openLogin()">
+        🔓 Intră în cont
+      </button>
+      <button class="btn" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 14px 28px; font-size: 1rem;" onclick="openSignUpModal()">
+        📝 Înregistrare voluntar
+      </button>
+      </div>
+    
+    <div class="v1-features">
+      <div class="v1-feature">
+        <div class="v1-feature-icon">📅</div>
+        <h3>Programare Simplă</h3>
+        <p>Programează-te în câteva secunde cu interfața intuitivă</p>
+      </div>
+      <div class="v1-feature">
+        <div class="v1-feature-icon">⚡</div>
+        <h3>Real-time</h3>
+        <p>Vezi disponibilitatea actualizată instant pentru fiecare zi</p>
+      </div>
+      <div class="v1-feature">
+        <div class="v1-feature-icon">📊</div>
+        <h3>Statistici Complete</h3>
+        <p>Statistici complete pentru echipa de administrare.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="appView" style="display: none;">
+<!-- HEADER -->
+<header class="header no-print">
+  <div class="hbrand">
+    <div class="hlogo">🚒</div>
+    <div>
+      <div class="htitle">Programări Voluntari</div>
+      <div class="hsub">SMURD · Sistem Intern</div>
+    </div>
+  </div>
+  <div id="admStatus" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"></div>
+</header>
 <div class="container no-print">
   <aside>
     <div id="maintBar">⚠️ SISTEM ÎN MENTENANȚĂ</div>
@@ -613,7 +699,8 @@
         </div>
       </div>		
      </div>
-  </main>
+	</main>
+	</div>
 </div>
 <div id="printArea"></div>
 <!-- GDPR -->
@@ -725,6 +812,8 @@ function registerVolunteer(){
 ============================================================ */
 auth.onAuthStateChanged(u=>{
   if(u){
+	document.getElementById("landingView").style.display = "none";
+    document.getElementById("appView").style.display = "block";
     setupInactivityListeners();
     db.ref('bookings').on('value',s=>{
       bks=s.val()?Object.keys(s.val()).map(k=>({id:k,...s.val()[k]})):[];
@@ -751,6 +840,8 @@ auth.onAuthStateChanged(u=>{
       rCal();rVol();applyMaintUI();
     });
 } else {
+	document.getElementById("landingView").style.display = "flex";
+    document.getElementById("appView").style.display = "none";
     removeInactivityListeners();isA=false;
     document.getElementById("admStatus").innerHTML=`<button class="btn btn-success" onclick="openSignUpModal()">📝 Înregistrare</button><button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>`;
     document.getElementById("admP").style.display="none";
@@ -1180,22 +1271,7 @@ function cleanOldData(){
   if(cnt===0){showToast('Nu există date mai vechi de 3 luni.','info');return;}
   db.ref().update(upds).then(()=>showToast(`${cnt} programări șterse.`,'success')).catch(err=>showToast('Eroare: '+err.message,'error'));
 }
-function generateReport(){
-  const cM=curD.getMonth(),cY=curD.getFullYear();
-  const stats={};vols.forEach(v=>{stats[v.id]={name:v.name,hours:0,shifts:0};});
-  bks.forEach(b=>{
-    const bd=new Date(b.date);
-    if(bd.getMonth()===cM&&bd.getFullYear()===cY){
-      if(!stats[b.uid])stats[b.uid]={name:(b.name?b.name+" (Cont Șters)":"Necunoscut"),hours:0,shifts:0};
-      if(!b.noShow){stats[b.uid].hours+=parseInt(b.end.split(':')[0])-parseInt(b.start.split(':')[0]);stats[b.uid].shifts+=1;}
-    }
-  });
-  const rows=Object.values(stats).filter(s=>s.shifts>0).sort((a,b)=>b.hours-a.hours);
-  if(rows.length===0){document.getElementById("reportArea").innerHTML=`<p style="color:var(--gray-500);font-size:.83rem;">Nicio activitate pentru această lună.</p>`;return;}
-  let html=`<table><thead><tr><th>Voluntar</th><th>Ture</th><th>Total Ore</th></tr></thead><tbody>`;
-  rows.forEach(s=>{html+=`<tr><td><b>${s.name}</b></td><td>${s.shifts}</td><td style="color:var(--success);font-weight:700;">${s.hours}h</td></tr>`;});
-  html+=`</tbody></table>`;document.getElementById("reportArea").innerHTML=html;
-}
+
 /* ============================================================
    CHARTS (NOU)
 ============================================================ */
@@ -1292,10 +1368,24 @@ function generateAbsenceChart() {
    MAINTENANCE UI
 ============================================================ */
 function applyMaintUI(){
-  const mb=document.getElementById("maintBar");if(mb)mb.style.display=isM?"block":"none";
-  const cont=document.querySelector('.container'),ms=document.getElementById('hardMaintScreen');
-  if(!isA){if(cont)cont.style.display=isM?'none':'grid';if(ms)ms.style.display=isM?'block':'none';lk(true);}
-  else{if(cont)cont.style.display='grid';if(ms)ms.style.display='none';lk(false);}
+  const mb = document.getElementById("maintBar"); if(mb) mb.style.display = isM ? "block" : "none";
+  const appView = document.getElementById('appView');
+  const landingView = document.getElementById('landingView');
+  const ms = document.getElementById('hardMaintScreen');
+  
+  if(!isA){
+    // Voluntar sau delogat
+    if(appView) appView.style.display = isM ? 'none' : (auth.currentUser ? 'block' : 'none');
+    if(landingView) landingView.style.display = isM ? 'none' : (!auth.currentUser ? 'flex' : 'none');
+    if(ms) ms.style.display = isM ? 'block' : 'none';
+    lk(true);
+  } else {
+    // Admin logat vede tot timpul appView
+    if(appView) appView.style.display = 'block';
+    if(landingView) landingView.style.display = 'none';
+    if(ms) ms.style.display = 'none';
+    lk(false);
+  }
 }
 /* ============================================================
    FIREBASE REALTIME LISTENERS
