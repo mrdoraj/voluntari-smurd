@@ -515,7 +515,7 @@
 			<button id="btnOpenUserInfo" class="btn btn-outline" style="width:100%; margin-top:15px; display:none;" onclick="openUserInfoModal()">ℹ️ Datele mele</button>
 			<button id="btnOpenTickets" class="btn btn-warning" style="width:100%; margin-top:15px; display:none;" onclick="openTicketsModal()">🎫 Solicitări / Asistență</button>
 		  
-		<a id="publicCalLink" href="https://mrdoraj.github.io/voluntari-smurd/calendar/" class="btn btn-outline" style="...">
+		<a id="publicCalLink" href="https://mrdoraj.github.io/voluntari-smurd/calendar/" target="_blank" class="btn btn-outline" style="width:100%; margin-top:15px; text-decoration:none; display:none; justify-content:center; align-items:center; gap:6px;">
 		  📅 Vezi Calendarul Public
 		</a>
 		</div>
@@ -1224,33 +1224,10 @@ function exportPublicCalendar() {
     }
   </style>
 </head>
-<body style="display: none;">
+<body>
   <div class="container">
     ${tableHtml}
   </div>
-
-  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
-  <script>
-    const firebaseConfig={
-      apiKey:"AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
-      authDomain:"rezervari-smurd.firebaseapp.com",
-      databaseURL:"https://rezervari-smurd-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId:"rezervari-smurd",
-      storageBucket:"rezervari-smurd.firebasestorage.app",
-      messagingSenderId:"694856921809",
-      appId:"1:694856921809:web:de6e004fd6a9cd5f4c0bf0"
-    };
-    firebase.initializeApp(firebaseConfig);
-    
-    firebase.auth().onAuthStateChanged(user => {
-      if (!user) {
-        window.location.replace("https://mrdoraj.github.io/voluntari-smurd/");
-      } else {
-        document.body.style.display = "block";
-      }
-    });
-  </script>
 </body>
 </html>`;
   const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
