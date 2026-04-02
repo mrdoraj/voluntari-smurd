@@ -1198,7 +1198,7 @@ function exportPublicCalendar() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calendar SMURD - ${luna}</title>
+  <title>Calendar SMURD - \${luna}</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'DM Sans', sans-serif; background: #f8fafc; padding: 20px; color: #0f172a; margin: 0; }
@@ -1224,10 +1224,33 @@ function exportPublicCalendar() {
     }
   </style>
 </head>
-<body>
+<body style="display: none;">
   <div class="container">
-    ${tableHtml}
+    \${tableHtml}
   </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"><\/script>
+  <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"><\/script>
+  <script>
+    const firebaseConfig={
+      apiKey:"AIzaSyDlpy92yTmFVzrvF5sGfT50pEipMx3k2Pg",
+      authDomain:"rezervari-smurd.firebaseapp.com",
+      databaseURL:"https://rezervari-smurd-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId:"rezervari-smurd",
+      storageBucket:"rezervari-smurd.firebasestorage.app",
+      messagingSenderId:"694856921809",
+      appId:"1:694856921809:web:de6e004fd6a9cd5f4c0bf0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) {
+        window.location.replace("https://mrdoraj.github.io/voluntari-smurd/");
+      } else {
+        document.body.style.display = "block";
+      }
+    });
+  <\/script>
 </body>
 </html>`;
   const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
