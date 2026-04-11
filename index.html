@@ -1001,7 +1001,7 @@ function execSave(n,p,targetUid){
   const newKey=db.ref('bookings').push().key;
   const monthKey=`${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
   const updates={};
-  updates['/bookings/'+newKey]={name:n,phone:p,uid:targetUid,date:shiftDate.toISOString(),start:hrs[min],end:hrs[max+1]||"22:00",auditUser:currentUserInfo,auditTime:new Date(Date.now() + serverTimeOffset).toLocaleString('ro-RO'),serverTime:firebase.database.ServerValue.TIMESTAMP};
+  updates['/bookings/'+newKey]={name:n,phone:p,uid:targetUid,date:shiftDate.toISOString(),start:hrs[min],end:hrs[max+1]||"22:00",auditUser:currentUserInfo,auditTime: new Date(Date.now() + serverTimeOffset).toLocaleString('ro-RO', { timeZone: 'Europe/Bucharest' }),serverTime:firebase.database.ServerValue.TIMESTAMP};
   updates[`/shift_counts/${targetUid}/${monthKey}`]=firebase.database.ServerValue.increment(1);
   db.ref().update(updates).then(()=>{
     setTimeout(()=>{
@@ -1167,7 +1167,8 @@ function exportPublicCalendar() {
   const y = curD.getFullYear(), m = curD.getMonth();
   const fd = new Date(y, m, 1).getDay(), offset = fd === 0 ? 6 : fd - 1;
   const last = new Date(y, m + 1, 0).getDate();
-  const timestamp = new Date(Date.now() + serverTimeOffset).toLocaleString('ro-RO', { 
+const timestamp = new Date(Date.now() + serverTimeOffset).toLocaleString('ro-RO', { 
+    timeZone: 'Europe/Bucharest',
     day: '2-digit', 
     month: '2-digit', 
     year: 'numeric', 
