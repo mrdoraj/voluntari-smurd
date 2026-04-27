@@ -85,12 +85,12 @@
     .cal-wd{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:1rem;margin-bottom:4px;}
     .cal-wdl{text-align:center;font-size:.65rem;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.07em;padding:3px 0;}
     .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-    .cal-day{aspect-ratio:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-weight:700;font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--tr);position:relative;flex-direction:column;gap:1px;}
+    .cal-day{aspect-ratio:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-weight:700;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--tr);position:relative;flex-direction:column;gap:1px;}
     .cal-day:hover:not(.day-past){transform:scale(1.07);z-index:2;box-shadow:var(--shadow);}
     .cal-day.selected{border:2.5px solid var(--primary)!important;background:var(--primary-bg)!important;color:var(--primary)!important;transform:scale(.96);box-shadow:0 0 0 3px rgba(29,78,216,.14);}
     
     /* MODIFICARI CULORI ZILE */
-    .day-available { background: #a0fcb5 !important; color: white !important; border-color: transparent !important; }
+    .day-available { background: #a0fcb5 !important; color: black !important; border-color: transparent !important; }
     .day-occupied { background: #f8fa9b !important; color: black !important; border-color: transparent !important; }
     .day-past { opacity: .32; cursor: not-allowed; background: var(--gray-100); color: var(--gray-400); }
     
