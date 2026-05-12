@@ -1324,6 +1324,15 @@ function renderAuditPage(auditBody){
     const aT=b.auditTime||"—";
     auditBody.innerHTML+=`<tr style="opacity:${b.noShow?.5:1};"><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck','bMultiBar','bSelCount')"></td><td style="text-decoration:${b.noShow?'line-through':'none'};font-weight:600;">${b.name}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${new Date(b.date).toLocaleDateString('ro-RO')}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${b.start} – ${b.end}</td><td><span class="${bc}">${aU}</span></td><td style="font-size:.72rem;color:var(--gray-400);">${aT}</td></tr>`;
   });
+  // Dupa re-render, checkboxurile sunt recreate nebifate — resetam bara si master checkbox
+  const bMultiBar=document.getElementById('bMultiBar');
+  const bMaster=document.getElementById('bMaster');
+  if(bMultiBar)bMultiBar.style.display='none';
+  if(bMaster)bMaster.checked=false;
+  const absentWrap=document.getElementById('absentToggleWrap');
+  const editBtn=document.getElementById('btnEditAudit');
+  if(absentWrap)absentWrap.style.display='none';
+  if(editBtn)editBtn.style.display='none';
   const totalP=Math.ceil(auditFiltered.length/AUDIT_PAGE_SIZE);
   let pb=document.getElementById("auditPagination");
   if(!pb){pb=document.createElement("div");pb.id="auditPagination";pb.style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;";const tr=auditBody.closest('.table-responsive')||auditBody.parentElement;tr.parentElement.insertBefore(pb,tr.nextSibling);}
