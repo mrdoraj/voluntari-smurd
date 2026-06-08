@@ -1243,9 +1243,14 @@ function searchMyStats(p){
   if(my.length>0){
     html=`<p style="font-size:.78rem;font-weight:700;color:var(--primary);margin:10px 0 6px 0;">📅 Programările tale:</p><ul style="list-style:none;padding:0;margin:0;">`;
     my.forEach(b=>{
-      const d=new Date(b.date).toLocaleDateString('ro-RO',{weekday:'short',day:'numeric',month:'short'});
-      const dateHtml=b.noShow?`<del style="color:var(--gray-400);">🗓️ <b>${d}</b></del> <span style="font-size:.7rem;color:var(--danger);font-weight:bold;">(Absent)</span>`:`<span>🗓️ <b>${d}</b></span>`;
-      const timeHtml=b.noShow?`<span class="stat-time" style="text-decoration:line-through;opacity:.6;">${b.start} – ${b.end}</span>`:`<span class="stat-time">${b.start} – ${b.end}</span>`;
+	const d=new Date(b.date).toLocaleDateString('ro-RO', {
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'short', 
+    timeZone: 'Europe/Bucharest' // <-- Adaugă asta
+});
+    const dateHtml=b.noShow?`<del style="color:var(--gray-400);">🗓️ <b>${d}</b></del> <span style="font-size:.7rem;color:var(--danger);font-weight:bold;">(Absent)</span>`:`<span>🗓️ <b>${d}</b></span>`;
+    const timeHtml=b.noShow?`<span class="stat-time" style="text-decoration:line-through;opacity:.6;">${b.start} – ${b.end}</span>`:`<span class="stat-time">${b.start} – ${b.end}</span>`;
       html+=`<li class="stat-row">${dateHtml}${timeHtml}</li>`;
     });
     html+=`</ul>`;
@@ -1311,7 +1316,7 @@ function computeAndRenderAudit(){
   const fm=document.getElementById("bMonthFilter")?.value||"";
   auditFiltered=[...bks];
   if(fm){const[fM,fY]=fm.split("-");auditFiltered=auditFiltered.filter(b=>{const d=new Date(b.date);return d.getFullYear()==fY&&(d.getMonth()+1)==parseInt(fM);});}
-  if(st)auditFiltered=auditFiltered.filter(b=>(b.name||"").toLowerCase().includes(st)||(b.auditUser||"").toLowerCase().includes(st)||new Date(b.date).toLocaleDateString('ro-RO').includes(st));
+  if(st)auditFiltered=auditFiltered.filter(b=>(b.name||"").toLowerCase().includes(st)||(b.auditUser||"").toLowerCase().includes(st)||new Date(b.date).toLocaleDateString('ro-RO', { timeZone: 'Europe/Bucharest' }).includes(st));
   auditFiltered.sort((a,b)=>new Date(a.date)-new Date(b.date));
   renderAuditPage();
 }
@@ -1322,7 +1327,7 @@ function renderAuditPage(auditBody){
     const aU=b.auditUser||"Admin (Vechi)";
     const bc=aU.includes('Admin')?'badge badge-admin':'badge badge-vol';
     const aT=b.auditTime||"—";
-    auditBody.innerHTML+=`<tr style="opacity:${b.noShow?.5:1};"><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck','bMultiBar','bSelCount')"></td><td style="text-decoration:${b.noShow?'line-through':'none'};font-weight:600;">${b.name}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${new Date(b.date).toLocaleDateString('ro-RO')}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${b.start} – ${b.end}</td><td><span class="${bc}">${aU}</span></td><td style="font-size:.72rem;color:var(--gray-400);">${aT}</td></tr>`;
+    auditBody.innerHTML+=`<tr style="opacity:${b.noShow?.5:1};"><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck','bMultiBar','bSelCount')"></td><td style="text-decoration:${b.noShow?'line-through':'none'};font-weight:600;">${b.name}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${new Date(b.date).toLocaleDateString('ro-RO', { timeZone: 'Europe/Bucharest' })}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${b.start} – ${b.end}</td><td><span class="${bc}">${aU}</span></td><td style="font-size:.72rem;color:var(--gray-400);">${aT}</td></tr>`;
   });
   // Dupa re-render, checkboxurile sunt recreate nebifate — resetam bara si master checkbox
   const bMultiBar=document.getElementById('bMultiBar');
@@ -1679,7 +1684,7 @@ function renderMyTickets(){
   const myT=tickets.filter(t=>t.uid===u.uid).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   if(myT.length===0){c.innerHTML='<p style="color:var(--gray-500);text-align:center;margin-top:20px;font-size:.85rem;">Nu ai nicio solicitare trimisă.</p>';return;}
   c.innerHTML=myT.map(t=>{
-    const d=new Date(t.createdAt).toLocaleString('ro-RO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const d=new Date(t.createdAt).toLocaleString('ro-RO', { timeZone: 'Europe/Bucharest', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     let badge='<span class="badge badge-pending">⏳ În așteptare</span>';
     if(t.status==='resolved')badge='<span class="badge badge-resolved">✅ Aprobat</span>';
     if(t.status==='rejected')badge='<span class="badge badge-rejected">❌ Respins</span>';
@@ -1691,7 +1696,7 @@ function renderAdminTickets(){
   const tb=document.getElementById('adminTicketsTab');if(!tb)return;
   const sorted=[...tickets].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   tb.innerHTML=sorted.map(t=>{
-    const d=new Date(t.createdAt).toLocaleString('ro-RO',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const d=new Date(t.createdAt).toLocaleString('ro-RO', { timeZone: 'Europe/Bucharest', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     let badge='<span class="badge badge-pending">În așteptare</span>';
     if(t.status==='resolved')badge='<span class="badge badge-resolved">Rezolvat</span>';
     if(t.status==='rejected')badge='<span class="badge badge-rejected">Respins</span>';
