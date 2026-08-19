@@ -458,6 +458,10 @@
       <input type="email" id="admEmail" placeholder="Email">
       <input type="password" id="admPass" placeholder="Parolă" onkeydown="if(event.key==='Enter')doAuth()">
       <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="doAuth()">Autentificare</button>
+      <button class="btn btn-outline" style="width:100%;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="doGoogleAuth()">
+        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.3 0 10.2-2 13.8-5.4l-6.4-5.4C29.4 34.7 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.4 5.4C39.9 37 44 31 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+        Continuă cu Google
+      </button>
       <button class="btn btn-outline" style="width:100%;" onclick="closeLogin()">Anulează</button>
     </div>
   </div>
@@ -475,6 +479,33 @@
     <input type="password" id="suPass" placeholder="Parolă (min. 8 caractere)" required>
     <button onclick="registerVolunteer()">Trimite Cererea de Înregistrare</button>
     <p id="suMsg" style="text-align:center;margin-top:13px;font-weight:600;font-size:.855rem;"></p>
+  </div>
+</div>
+
+<!-- COMPLETARE PROFIL (prima autentificare via Google) -->
+<div id="completeProfileModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <h3>👤 Finalizează Înregistrarea</h3>
+    <p style="font-size:.82rem;color:var(--gray-500);margin-top:-10px;margin-bottom:14px;">Este prima ta autentificare cu Google. Completează datele pentru a trimite cererea de înregistrare ca voluntar.</p>
+    <input type="text" id="cpName" placeholder="Nume complet" required>
+    <input type="tel" id="cpPhone" placeholder="Număr de telefon (ex: 07XXXXXXXX)" required>
+    <p class="field-hint">Format: 07XXXXXXXX (10 cifre)</p>
+    <button onclick="completeGoogleProfile()">Trimite Cererea de Înregistrare</button>
+    <button class="btn btn-outline" style="width:100%;margin-top:8px;background:var(--surface);" onclick="cancelCompleteProfile()">Anulează și deconectează-te</button>
+    <p id="cpMsg" style="text-align:center;margin-top:13px;font-weight:600;font-size:.855rem;"></p>
+  </div>
+</div>
+
+<!-- RESETARE MANUALĂ PAROLĂ (admin) -->
+<div id="manualResetModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeManualResetModal()">×</span>
+    <h3>🔑 Resetare Manuală Parolă</h3>
+    <p style="font-size:.82rem;color:var(--gray-500);margin-top:-10px;margin-bottom:14px;">Voluntar: <b id="mrName"></b></p>
+    <input type="hidden" id="mrUid">
+    <input type="password" id="mrPass" placeholder="Parolă nouă (min. 8 caractere)" onkeydown="if(event.key==='Enter')submitManualReset()" required>
+    <button onclick="submitManualReset()">Salvează Parola Nouă</button>
+    <p id="mrMsg" style="text-align:center;margin-top:13px;font-weight:600;font-size:.855rem;"></p>
   </div>
 </div>
 
@@ -865,6 +896,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-functions-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 /* ============================================================
@@ -880,7 +912,7 @@ const firebaseConfig={
   appId:"1:694856921809:web:de6e004fd6a9cd5f4c0bf0"
 };
 firebase.initializeApp(firebaseConfig);
-const db=firebase.database(),auth=firebase.auth();
+const db=firebase.database(),auth=firebase.auth(),fnCall=firebase.functions();
 /* ============================================================
    TOAST
 ============================================================ */
@@ -940,6 +972,13 @@ function doAuth(){
     .catch(err=>showToast(err.message,'error',5000));
 }
 function admOut(){auth.signOut().then(()=>location.reload());}
+function doGoogleAuth(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .then(()=>auth.signInWithPopup(provider))
+    .then(()=>closeLogin())
+    .catch(err=>{if(err.code!=='auth/popup-closed-by-user')showToast('Eroare Google: '+err.message,'error',5000);});
+}
 function openSignUpModal(){
   if(isM){showToast('Sistem în mentenanță. Nu se pot crea conturi.','warning');return;}
   document.getElementById("signUpModal").style.display="flex";
@@ -994,7 +1033,7 @@ auth.onAuthStateChanged(u=>{
         lk(false);loadPendingVolunteers();listenToAllVolunteers();
       } else {
         document.getElementById("admStatus").innerHTML=`<button class="btn btn-outline" onclick="admOut()">Deconectare</button>`;
-        checkVolunteerStatus(u);
+        handleVolunteerLogin(u);
         document.getElementById("publicCalLink").style.display="flex";
       }
       rCal();rVol();applyMaintUI();
@@ -1028,6 +1067,44 @@ function checkVolunteerStatus(u){
       }
     } else {document.getElementById("authMsg").innerHTML=`<span style="color:var(--danger);">❌ Datele profilului nu au fost găsite.</span>`;lk(true);}
   });
+}
+/* ============================================================
+   COMPLETARE PROFIL — prima autentificare Google fără cont voluntar
+============================================================ */
+let pendingProfileUser=null;
+function handleVolunteerLogin(u){
+  db.ref('volunteers/'+u.uid).once('value',s=>{
+    if(s.exists())checkVolunteerStatus(u);
+    else openCompleteProfileModal(u);
+  });
+}
+function openCompleteProfileModal(u){
+  pendingProfileUser=u;
+  document.getElementById('cpName').value=u.displayName||'';
+  document.getElementById('cpPhone').value='';
+  document.getElementById('cpMsg').innerText='';
+  document.getElementById('completeProfileModal').style.display='flex';
+}
+function cancelCompleteProfile(){
+  document.getElementById('completeProfileModal').style.display='none';
+  pendingProfileUser=null;
+  auth.signOut();
+}
+function completeGoogleProfile(){
+  const name=document.getElementById('cpName').value.trim();
+  const phone=document.getElementById('cpPhone').value.trim();
+  const msg=document.getElementById('cpMsg');
+  if(!name){msg.style.color='red';msg.innerText='Completează numele!';return;}
+  if(!isValidPhone(phone)){msg.style.color='red';msg.innerText='Telefon invalid! Format: 07XXXXXXXX';return;}
+  const u=pendingProfileUser||auth.currentUser;
+  if(!u)return;
+  msg.style.color='#3b82f6';msg.innerText='Se salvează...';
+  db.ref('volunteers/'+u.uid).set({name,phone,email:u.email||'',status:'pending'})
+    .then(()=>{
+      msg.style.color='green';msg.innerText='Cerere trimisă! Așteaptă aprobarea.';
+      setTimeout(()=>{document.getElementById('completeProfileModal').style.display='none';pendingProfileUser=null;checkVolunteerStatus(u);},1500);
+    })
+    .catch(err=>{msg.style.color='red';msg.innerText='Eroare: '+err.message;});
 }
 function loadPendingVolunteers(){
   if(!isA)return;
@@ -1217,14 +1294,40 @@ function editV(id,oldName,oldPhone){
   if(n.trim()&&p.trim())db.ref('volunteers/'+id).update({name:n.trim(),phone:p.trim()}).then(()=>showToast('Date actualizate!','success')).catch(err=>showToast('Eroare: '+err.message,'error'));
   else showToast('Numele și telefonul nu pot fi goale!','warning');
 }
-function rVol(){
-  const t=document.getElementById("vTab"),s=document.getElementById("vSearch").value.toLowerCase();t.innerHTML="";
-  vols.filter(v=>v.name.toLowerCase().includes(s)||v.id.includes(s)||(v.email&&v.email.toLowerCase().includes(s))).forEach(v=>{
+/* ============================================================
+   VOLUNTARI — paginare (aceeași logică ca la Audit)
+============================================================ */
+let volPage=0;
+const VOL_PAGE_SIZE=100;
+let volFiltered=[];
+function rVol(){volPage=0;computeAndRenderVol();}
+function computeAndRenderVol(){
+  const s=(document.getElementById("vSearch")?.value||"").toLowerCase();
+  volFiltered=vols.filter(v=>v.name.toLowerCase().includes(s)||v.id.includes(s)||(v.email&&v.email.toLowerCase().includes(s)));
+  renderVolPage();
+}
+function renderVolPage(){
+  const t=document.getElementById("vTab");if(!t)return;
+  const start=volPage*VOL_PAGE_SIZE,pageData=volFiltered.slice(start,start+VOL_PAGE_SIZE);
+  const rows=pageData.map(v=>{
     const eP=v.email?`'${v.email}'`:'null';
     const dE=v.email?v.email:`<span style="color:var(--danger);font-size:.73rem;">Lipsă email</span>`;
-    t.innerHTML+=`<tr><td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck','vMultiBar','vSelCount')"></td><td><b>${v.name}</b></td><td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;">${v.phone}</td><td style="font-size:.58rem;color:var(--gray-400);font-family:'JetBrains Mono',monospace;">${v.id}</td><td style="font-size:.8rem;">${dE}</td><td><button onclick="editV('${v.id}','${v.name}','${v.phone}')" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Editează">✏️</button><button onclick="resetPass(${eP})" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Resetează parola">📧</button><button onclick="delV('${v.id}')" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Șterge">❌</button></td></tr>`;
-  });
+    const nameEsc=(v.name||'').replace(/'/g,"\\'");
+    return `<tr><td><input type="checkbox" class="vCheck" value="${v.id}" onchange="updSelCount('vCheck','vMultiBar','vSelCount')"></td><td><b>${v.name}</b></td><td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;">${v.phone}</td><td style="font-size:.58rem;color:var(--gray-400);font-family:'JetBrains Mono',monospace;">${v.id}</td><td style="font-size:.8rem;">${dE}</td><td><button onclick="editV('${v.id}','${v.name}','${v.phone}')" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Editează">✏️</button><button onclick="openManualResetModal('${v.id}','${nameEsc}')" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Resetare manuală parolă">🔑</button><button onclick="resetPass(${eP})" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Email de resetare">📧</button><button onclick="delV('${v.id}')" style="cursor:pointer;border:none;background:none;font-size:1rem;padding:3px;" title="Șterge">❌</button></td></tr>`;
+  }).join('');
+  t.innerHTML=rows;
+  // Dupa re-render, checkboxurile sunt recreate nebifate — resetam bara si master checkbox
+  const vMultiBar=document.getElementById('vMultiBar');
+  const vMaster=document.getElementById('vMaster');
+  if(vMultiBar)vMultiBar.style.display='none';
+  if(vMaster)vMaster.checked=false;
+  const totalP=Math.ceil(volFiltered.length/VOL_PAGE_SIZE);
+  let pb=document.getElementById("volPagination");
+  if(!pb){pb=document.createElement("div");pb.id="volPagination";pb.style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;";const tr=t.closest('.table-responsive')||t.parentElement;tr.parentElement.insertBefore(pb,tr.nextSibling);}
+  if(totalP<=1)pb.innerHTML=volFiltered.length>0?`<span style="font-size:.76rem;color:var(--gray-500);">Total: <b>${volFiltered.length}</b> voluntari</span>`:"";
+  else pb.innerHTML=`<button class="btn btn-outline" onclick="changeVolPage(-1)" ${volPage===0?'disabled':''}>← Anterior</button><span style="font-size:.8rem;color:var(--gray-500);">Pagina <b>${volPage+1}</b> din <b>${totalP}</b> | Total: <b>${volFiltered.length}</b></span><button class="btn btn-outline" onclick="changeVolPage(1)" ${volPage>=totalP-1?'disabled':''}>Următor →</button>`;
 }
+function changeVolPage(dir){const t=Math.ceil(volFiltered.length/VOL_PAGE_SIZE);volPage=Math.max(0,Math.min(volPage+dir,t-1));renderVolPage();}
 function delV(id){if(confirm("Ștergi voluntarul?"))db.ref('volunteers/'+id).remove();}
 function toggleNoShow(bookingId,isAbsent){
   db.ref('bookings/'+bookingId).update({noShow:isAbsent})
@@ -1235,6 +1338,31 @@ function resetPass(email){
   if(!email){showToast('Voluntarul nu are email salvat.','warning');return;}
   if(confirm("Trimiteți email de resetare către: "+email+"?"))
     auth.sendPasswordResetEmail(email).then(()=>showToast('Email trimis către '+email,'success')).catch(err=>showToast('Eroare: '+err.message,'error'));
+}
+/* ============================================================
+   RESETARE MANUALĂ PAROLĂ (admin seteaza direct parola noua)
+   NOTĂ: necesită Cloud Function 'adminSetVolunteerPassword' (Admin SDK),
+   deoarece SDK-ul client nu poate seta parola altui utilizator.
+============================================================ */
+function openManualResetModal(uid,name){
+  document.getElementById('mrUid').value=uid;
+  document.getElementById('mrName').innerText=name;
+  document.getElementById('mrPass').value='';
+  document.getElementById('mrMsg').innerText='';
+  document.getElementById('manualResetModal').style.display='flex';
+}
+function closeManualResetModal(){document.getElementById('manualResetModal').style.display='none';}
+function submitManualReset(){
+  const uid=document.getElementById('mrUid').value;
+  const pass=document.getElementById('mrPass').value;
+  const msg=document.getElementById('mrMsg');
+  if(!pass||pass.length<8){msg.style.color='red';msg.innerText='Parola trebuie să aibă minim 8 caractere.';return;}
+  msg.style.color='#3b82f6';msg.innerText='Se actualizează parola...';
+  const setPass=fnCall.httpsCallable('adminSetVolunteerPassword');
+  setPass({uid,newPassword:pass}).then(()=>{
+    msg.style.color='green';msg.innerText='Parola a fost actualizată cu succes!';
+    setTimeout(closeManualResetModal,1500);
+  }).catch(err=>{msg.style.color='red';msg.innerText='Eroare: '+(err.message||'Funcția server nu este disponibilă.');});
 }
 function searchMyStats(p){
   const today=new Date().setHours(0,0,0,0);
@@ -1692,10 +1820,21 @@ function renderMyTickets(){
     return `<div class="ticket-item"><div style="display:flex;justify-content:space-between;margin-bottom:8px;align-items:flex-start;"><strong style="color:var(--primary);font-size:.9rem;">${t.subject}</strong>${badge}</div><div style="font-size:.75rem;color:var(--gray-500);margin-bottom:8px;">📅 ${d}</div><div style="font-size:.85rem;line-height:1.4;">${t.message}</div>${replyHtml}</div>`;
   }).join('');
 }
-function renderAdminTickets(){
+/* ============================================================
+   SOLICITĂRI (ADMIN) — paginare (aceeași logică ca la Audit)
+============================================================ */
+let ticketsPage=0;
+const TICKETS_PAGE_SIZE=100;
+let ticketsFiltered=[];
+function renderAdminTickets(){ticketsPage=0;computeAndRenderAdminTickets();}
+function computeAndRenderAdminTickets(){
+  ticketsFiltered=[...tickets].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  renderAdminTicketsPage();
+}
+function renderAdminTicketsPage(){
   const tb=document.getElementById('adminTicketsTab');if(!tb)return;
-  const sorted=[...tickets].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  tb.innerHTML=sorted.map(t=>{
+  const start=ticketsPage*TICKETS_PAGE_SIZE,pageData=ticketsFiltered.slice(start,start+TICKETS_PAGE_SIZE);
+  tb.innerHTML=pageData.map(t=>{
     const d=new Date(t.createdAt).toLocaleString('ro-RO', { timeZone: 'Europe/Bucharest', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     let badge='<span class="badge badge-pending">În așteptare</span>';
     if(t.status==='resolved')badge='<span class="badge badge-resolved">Rezolvat</span>';
@@ -1715,7 +1854,13 @@ function renderAdminTickets(){
       </td>
     </tr>`;
   }).join('');
+  const totalP=Math.ceil(ticketsFiltered.length/TICKETS_PAGE_SIZE);
+  let pb=document.getElementById("ticketsPagination");
+  if(!pb){pb=document.createElement("div");pb.id="ticketsPagination";pb.style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;";const tr=tb.closest('.table-responsive')||tb.parentElement;tr.parentElement.insertBefore(pb,tr.nextSibling);}
+  if(totalP<=1)pb.innerHTML=ticketsFiltered.length>0?`<span style="font-size:.76rem;color:var(--gray-500);">Total: <b>${ticketsFiltered.length}</b> solicitări</span>`:"";
+  else pb.innerHTML=`<button class="btn btn-outline" onclick="changeTicketsPage(-1)" ${ticketsPage===0?'disabled':''}>← Anterior</button><span style="font-size:.8rem;color:var(--gray-500);">Pagina <b>${ticketsPage+1}</b> din <b>${totalP}</b> | Total: <b>${ticketsFiltered.length}</b></span><button class="btn btn-outline" onclick="changeTicketsPage(1)" ${ticketsPage>=totalP-1?'disabled':''}>Următor →</button>`;
 }
+function changeTicketsPage(dir){const t=Math.ceil(ticketsFiltered.length/TICKETS_PAGE_SIZE);ticketsPage=Math.max(0,Math.min(ticketsPage+dir,t-1));renderAdminTicketsPage();}
 function updateTicketStatus(id,stat){db.ref('tickets/'+id).update({status:stat}).then(()=>showToast('Status solicitare actualizat.','success'));}
 function replyTicket(id){const r=prompt("Introduceți răspunsul pentru voluntar:");if(r!==null)db.ref('tickets/'+id).update({reply:r.trim()}).then(()=>showToast('Răspuns adăugat cu succes.','success'));}
 /* ============================================================
