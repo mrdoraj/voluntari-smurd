@@ -472,6 +472,15 @@
   <div class="modal-content">
     <span class="close-btn" onclick="closeSignUpModal()">×</span>
     <h3>📝 Creare Cont Voluntar</h3>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--surface);" onclick="doGoogleAuth()">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.3 0 10.2-2 13.8-5.4l-6.4-5.4C29.4 34.7 26.8 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.4 5.4C39.9 37 44 31 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+      Înregistrează-te cu Google
+    </button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:.72rem;color:var(--gray-400);font-weight:600;">SAU CU EMAIL</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
     <input type="text" id="suName" placeholder="Nume complet" required>
     <input type="tel" id="suPhone" placeholder="Număr de telefon (ex: 07XXXXXXXX)" required>
     <p class="field-hint">Format: 07XXXXXXXX (10 cifre)</p>
@@ -493,6 +502,18 @@
     <button onclick="completeGoogleProfile()">Trimite Cererea de Înregistrare</button>
     <button class="btn btn-outline" style="width:100%;margin-top:8px;background:var(--surface);" onclick="cancelCompleteProfile()">Anulează și deconectează-te</button>
     <p id="cpMsg" style="text-align:center;margin-top:13px;font-weight:600;font-size:.855rem;"></p>
+  </div>
+</div>
+
+<!-- LEGARE CONT — email deja folosit cu parolă, la login cu Google -->
+<div id="linkAccountModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeLinkAccountModal()">×</span>
+    <h3>🔗 Conectează Conturile</h3>
+    <p style="font-size:.82rem;color:var(--gray-500);margin-top:-10px;margin-bottom:14px;">Există deja un cont cu emailul <b id="laEmail"></b>, creat cu parolă. Introdu parola contului existent pentru a-l conecta cu Google — vei putea folosi ambele metode pe viitor.</p>
+    <input type="password" id="laPass" placeholder="Parola contului existent" onkeydown="if(event.key==='Enter')completeAccountLink()" required>
+    <button onclick="completeAccountLink()">Conectează Contul</button>
+    <p id="laMsg" style="text-align:center;margin-top:13px;font-weight:600;font-size:.855rem;"></p>
   </div>
 </div>
 
@@ -976,8 +997,48 @@ function doGoogleAuth(){
   const provider=new firebase.auth.GoogleAuthProvider();
   auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
     .then(()=>auth.signInWithPopup(provider))
-    .then(()=>closeLogin())
-    .catch(err=>{if(err.code!=='auth/popup-closed-by-user')showToast('Eroare Google: '+err.message,'error',5000);});
+    .then(()=>{closeLogin();closeSignUpModal();})
+    .catch(err=>{
+      if(err.code==='auth/account-exists-with-different-credential'){
+        handleGoogleAccountConflict(err);
+      } else if(err.code!=='auth/popup-closed-by-user'){
+        showToast('Eroare Google: '+err.message,'error',5000);
+      }
+    });
+}
+/* ============================================================
+   LEGARE CONT GOOGLE — cazul unui voluntar deja înregistrat
+   cu email/parolă, care apasă "Continuă cu Google" cu ACELAȘI email.
+   Fără asta, s-ar crea un cont Auth nou/separat, iar voluntarul
+   și-ar pierde profilul și statusul deja aprobat.
+============================================================ */
+let pendingLinkEmail=null,pendingLinkCred=null;
+function handleGoogleAccountConflict(err){
+  pendingLinkEmail=err.email;pendingLinkCred=err.credential;
+  auth.fetchSignInMethodsForEmail(pendingLinkEmail).then(methods=>{
+    if(methods.includes('password')){
+      document.getElementById('laEmail').innerText=pendingLinkEmail;
+      document.getElementById('laPass').value='';
+      document.getElementById('laMsg').innerText='';
+      document.getElementById('linkAccountModal').style.display='flex';
+    } else {
+      showToast('Acest email este deja folosit cu o altă metodă de autentificare.','warning',5000);
+    }
+  });
+}
+function closeLinkAccountModal(){document.getElementById('linkAccountModal').style.display='none';pendingLinkEmail=null;pendingLinkCred=null;}
+function completeAccountLink(){
+  const pass=document.getElementById('laPass').value;
+  const msg=document.getElementById('laMsg');
+  if(!pass){msg.style.color='red';msg.innerText='Introdu parola contului tău existent.';return;}
+  msg.style.color='#3b82f6';msg.innerText='Se conectează conturile...';
+  auth.signInWithEmailAndPassword(pendingLinkEmail,pass)
+    .then(userCred=>userCred.user.linkWithCredential(pendingLinkCred))
+    .then(()=>{
+      msg.style.color='green';msg.innerText='Conturile au fost conectate cu succes!';
+      setTimeout(()=>{closeLinkAccountModal();closeLogin();closeSignUpModal();},1200);
+    })
+    .catch(err=>{msg.style.color='red';msg.innerText=err.code==='auth/wrong-password'?'Parolă incorectă.':'Eroare: '+err.message;});
 }
 function openSignUpModal(){
   if(isM){showToast('Sistem în mentenanță. Nu se pot crea conturi.','warning');return;}
