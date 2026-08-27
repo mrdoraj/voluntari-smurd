@@ -1426,24 +1426,44 @@ function submitManualReset(){
   }).catch(err=>{msg.style.color='red';msg.innerText='Eroare: '+(err.message||'Funcția server nu este disponibilă.');});
 }
 function searchMyStats(p){
+  const now=new Date();
   const today=new Date().setHours(0,0,0,0);
-  const my=bks.filter(b=>b.phone===p&&new Date(b.date)>=today).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const rangeStart=new Date(now.getFullYear(), now.getMonth(), 1);
+  const rangeEnd=new Date(now.getFullYear(), now.getMonth()+2, 1);
+  const my=bks.filter(b=>b.phone===p && new Date(b.date)>=rangeStart && new Date(b.date)<rangeEnd)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
   let html="";
   if(my.length>0){
     html=`<p style="font-size:.78rem;font-weight:700;color:var(--primary);margin:10px 0 6px 0;">📅 Programările tale:</p><ul style="list-style:none;padding:0;margin:0;">`;
     my.forEach(b=>{
-	const d=new Date(b.date).toLocaleDateString('ro-RO', {
-    weekday: 'short', 
-    day: 'numeric', 
-    month: 'short', 
-    timeZone: 'Europe/Bucharest' // <-- Adaugă asta
-});
-    const dateHtml=b.noShow?`<del style="color:var(--gray-400);">🗓️ <b>${d}</b></del> <span style="font-size:.7rem;color:var(--danger);font-weight:bold;">(Absent)</span>`:`<span>🗓️ <b>${d}</b></span>`;
-    const timeHtml=b.noShow?`<span class="stat-time" style="text-decoration:line-through;opacity:.6;">${b.start} – ${b.end}</span>`:`<span class="stat-time">${b.start} – ${b.end}</span>`;
+      const bDate=new Date(b.date);
+      const isPast=bDate<today;
+      const d=bDate.toLocaleDateString('ro-RO', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'Europe/Bucharest'
+      });
+      let statusTag='';
+      if(b.noShow) statusTag=`<span style="font-size:.7rem;color:var(--danger);font-weight:bold;">(Absent)</span>`;
+      else if(isPast) statusTag=`<span style="font-size:.7rem;color:var(--gray-500);font-weight:bold;">(Efectuat)</span>`;
+
+      const dateHtml=b.noShow
+        ?`<del style="color:var(--gray-400);">🗓️ <b>${d}</b></del> ${statusTag}`
+        :(isPast
+          ?`<span style="color:var(--gray-500);">🗓️ <b>${d}</b></span> ${statusTag}`
+          :`<span>🗓️ <b>${d}</b></span>`);
+
+      const timeHtml=b.noShow
+        ?`<span class="stat-time" style="text-decoration:line-through;opacity:.6;">${b.start} – ${b.end}</span>`
+        :(isPast
+          ?`<span class="stat-time" style="opacity:.7;">${b.start} – ${b.end}</span>`
+          :`<span class="stat-time">${b.start} – ${b.end}</span>`);
+
       html+=`<li class="stat-row">${dateHtml}${timeHtml}</li>`;
     });
     html+=`</ul>`;
-  } else html=`<p style="font-size:.8rem;color:var(--gray-500);margin-top:10px;">Nu ai nicio programare.</p>`;
+  } else html=`<p style="font-size:.8rem;color:var(--gray-500);margin-top:10px;">Nu ai nicio programare în luna curentă sau următoare.</p>`;
   document.getElementById("myStats").innerHTML=html;
 }
 function updSelCount(cls,barId,txtId){
