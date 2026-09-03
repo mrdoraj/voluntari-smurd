@@ -1756,12 +1756,13 @@ function applyMaintUI(){
       if(appView)appView.style.display=isM?'none':'block';
       if(landingView)landingView.style.display='none';
       if(ms)ms.style.display=isM?'block':'none';
+      if(isM)lk(true); // blocheaza DOAR cand mentenanta e activa - altfel nu suprascrie starea deja stabilita de checkVolunteerStatus() (aprobat/in asteptare)
     } else {
       if(appView)appView.style.display='none';
       if(landingView)landingView.style.display='flex';
       if(ms)ms.style.display='none';
+      lk(true);
     }
-    lk(true);
   } else {
     if(appView)appView.style.display='block';
     if(landingView)landingView.style.display='none';
