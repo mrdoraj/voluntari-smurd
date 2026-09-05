@@ -1210,7 +1210,22 @@ function loadPendingVolunteers(){
   });
 }
 function approveVol(uid){db.ref('volunteers/'+uid).update({status:"approved"}).then(()=>showToast('Voluntar aprobat!','success'));}
-function rejectVol(uid){if(confirm("Ștergi această cerere?"))db.ref('volunteers/'+uid).remove().then(()=>showToast('Cerere ștearsă.','warning'));}
+/* ============================================================
+   RESPINGERE / ȘTERGERE VOLUNTAR
+   NOTĂ: necesită Cloud Function 'adminDeleteVolunteer' (Admin SDK) ca sa
+   stearga si contul Firebase Auth, nu doar inregistrarea din Realtime DB —
+   altfel persoana respinsa/stearsa se poate reinregistra oricand cu acelasi cont.
+   Daca functia nu e disponibila (nedeployata/eroare), se pastreaza vechiul
+   comportament (sterge doar din DB) impreuna cu un avertisment explicit.
+============================================================ */
+function rejectVol(uid){
+  if(!confirm("Ștergi această cerere? Contul de autentificare al persoanei va fi șters definitiv."))return;
+  const delFn=fnCall.httpsCallable('adminDeleteVolunteer');
+  delFn({uid}).then(()=>showToast('Cerere ștearsă și cont dezactivat.','warning'))
+    .catch(err=>{
+      db.ref('volunteers/'+uid).remove().then(()=>showToast('Cerere ștearsă din listă, dar contul de autentificare NU a putut fi șters ('+(err.message||'funcție indisponibilă')+'). Persoana se poate reînregistra cu același cont.','error',7000));
+    });
+}
 /* ============================================================
    CALENDAR
 ============================================================ */
@@ -1401,7 +1416,14 @@ function renderVolPage(){
   else pb.innerHTML=`<button class="btn btn-outline" onclick="changeVolPage(-1)" ${volPage===0?'disabled':''}>← Anterior</button><span style="font-size:.8rem;color:var(--gray-500);">Pagina <b>${volPage+1}</b> din <b>${totalP}</b> | Total: <b>${volFiltered.length}</b></span><button class="btn btn-outline" onclick="changeVolPage(1)" ${volPage>=totalP-1?'disabled':''}>Următor →</button>`;
 }
 function changeVolPage(dir){const t=Math.ceil(volFiltered.length/VOL_PAGE_SIZE);volPage=Math.max(0,Math.min(volPage+dir,t-1));renderVolPage();}
-function delV(id){if(confirm("Ștergi voluntarul?"))db.ref('volunteers/'+id).remove();}
+function delV(id){
+  if(!confirm("Ștergi voluntarul? Contul de autentificare va fi șters definitiv."))return;
+  const delFn=fnCall.httpsCallable('adminDeleteVolunteer');
+  delFn({uid:id}).then(()=>showToast('Voluntar șters complet (inclusiv contul de autentificare).','warning'))
+    .catch(err=>{
+      db.ref('volunteers/'+id).remove().then(()=>showToast('Voluntar șters din listă, dar contul de autentificare NU a putut fi șters ('+(err.message||'funcție indisponibilă')+'). Persoana se poate reînregistra cu același cont.','error',7000));
+    });
+}
 function toggleNoShow(bookingId,isAbsent){
   db.ref('bookings/'+bookingId).update({noShow:isAbsent})
     .then(()=>showToast(isAbsent?'Marcat ca Absent.':'Marcat ca Prezent.',isAbsent?'warning':'success'))
