@@ -1002,6 +1002,7 @@ function doAuth(){
 function admOut(){auth.signOut().then(()=>location.reload());}
 function doGoogleAuth(){
   const provider=new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({prompt:'select_account'}); // fortam mereu selectorul de cont Google, altfel se reutilizeaza silentios ultimul cont
   auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
     .then(()=>auth.signInWithPopup(provider))
     .then(()=>{closeLogin();closeSignUpModal();})
@@ -1170,7 +1171,7 @@ function completeGoogleProfile(){
   db.ref('volunteers/'+u.uid).set({name,phone,email:u.email||'',status:'pending'})
     .then(()=>{
       msg.style.color='green';msg.innerText='Cerere trimisă! Așteaptă aprobarea.';
-      setTimeout(()=>{document.getElementById('completeProfileModal').style.display='none';pendingProfileUser=null;checkVolunteerStatus(u);},1500);
+      setTimeout(()=>{document.getElementById('completeProfileModal').style.display='none';pendingProfileUser=null;auth.signOut();},1500);
     })
     .catch(err=>{msg.style.color='red';msg.innerText='Eroare: '+err.message;});
 }
