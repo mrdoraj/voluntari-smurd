@@ -1635,6 +1635,18 @@ function prepPrint(){
 }
 function exportPublicCalendar(){
   const luna=document.getElementById("mLab").innerText;
+  const y=curD.getFullYear(),m=curD.getMonth()+1; // server-ul foloseste luni 1-indexate (1=ianuarie)
+  showToast('Se publică calendarul pe GitHub...','info');
+  const publishFn=fnCall.httpsCallable('publishPublicCalendar');
+  publishFn({year:y,month:m}).then(()=>{
+    showToast('Calendarul a fost publicat cu succes pe GitHub Pages!','success');
+  }).catch(err=>{
+    showToast('Publicare automată eșuată ('+(err.message||'funcție indisponibilă')+'). Descarc fișierul local, ca să-l încarci manual.','warning',7000);
+    exportPublicCalendarLocalFallback();
+  });
+}
+function exportPublicCalendarLocalFallback(){
+  const luna=document.getElementById("mLab").innerText;
   const y=curD.getFullYear(),m=curD.getMonth();
   const fd=new Date(y,m,1).getDay(),offset=fd===0?6:fd-1;
   const last=new Date(y,m+1,0).getDate();
