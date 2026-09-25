@@ -1848,11 +1848,24 @@ function scheduleMaintOff(){
   db.ref('settings').update({maintenance:true,maintenanceUntil:targetTime}).then(()=>{showToast(`Sistemul va fi deblocat automat la ${displayStr}`,'success');fpMaint.clear();});
 }
 function evaluateMaintenance(){
-  const currentServerTime=Date.now()+serverTimeOffset;
-  if(isM&&maintUntil&&currentServerTime>=maintUntil){isM=false;if(isA)tglM(false);}
+  // isM vine STRICT din valoarea reala din DB (vezi listener-ul 'settings' mai sus).
+  // NU mai setam isM local pe baza ceasului clientului - asta era cauza erorii
+  // PERMISSION_DENIED: UI-ul se debloca local inainte ca flagul din DB sa fie
+  // efectiv schimbat (scrierea reala e acum facuta server-side, vezi Cloud Function
+  // 'autoDisableMaintenance'). Intervalul de mai jos ramane doar ca fallback si
+  // pentru afisarea contorului, fara sa modifice starea locala isM.
   applyMaintUIUpdates();
   clearInterval(maintInterval);
-  if(isM&&maintUntil){maintInterval=setInterval(()=>{const nowServer=Date.now()+serverTimeOffset;if(nowServer>=maintUntil){clearInterval(maintInterval);evaluateMaintenance();}},1000);}
+  if(isM&&maintUntil){
+    maintInterval=setInterval(()=>{
+      const nowServer=Date.now()+serverTimeOffset;
+      // Fallback: daca din orice motiv Cloud Function-ul programat nu a rulat inca,
+      // iar un admin este conectat, incearca sa impinga scrierea in DB. Nu atingem
+      // isM aici - UI-ul se va actualiza singur cand listener-ul 'settings' primeste
+      // noua valoare reala din server.
+      if(isA&&nowServer>=maintUntil){tglM(false);}
+    },1000);
+  }
 }
 function applyMaintUIUpdates(){
   applyMaintUI();
