@@ -976,12 +976,45 @@ let bks=[],vols=[],isA=false,isM=false;
 let statsChartInst=null,monthlyChartInst=null,absenceChartInst=null;
 const hrs=[];for(let i=8;i<=22;i++)hrs.push(`${String(i).padStart(2,'0')}:00`);
 /* ============================================================
+   ZI CALENDARISTICĂ INDEPENDENTĂ DE FUSUL ORAR AL DISPOZITIVULUI
+   Înainte, ziua unei programări se deducea din `new Date(b.date).toDateString()`,
+   adică în fusul orar al telefonului/PC-ului. Un dispozitiv cu alt fus (UTC, Londra,
+   SUA...) vedea programările mutate cu o zi și permitea suprapuneri.
+   Acum fiecare programare are `dateKey` ('YYYY-MM-DD', luat direct din ziua aleasă în
+   calendar). Programările vechi (fără dateKey) primesc cheia calculată în ora României.
+============================================================ */
+const _roDayFmt=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Bucharest',year:'numeric',month:'2-digit',day:'2-digit'});
+function dayKeyOfInstant(t){const p={};_roDayFmt.formatToParts(t).forEach(x=>{p[x.type]=x.value;});return `${p.year}-${p.month}-${p.day}`;}
+function dayKeyFromParts(y,m0,d){return `${y}-${String(m0+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function selKey(d){return dayKeyFromParts(d.getFullYear(),d.getMonth(),d.getDate());}
+function bDayKey(b){
+  if(b&&b.dateKey)return b.dateKey;
+  const t=(b&&b.date)?new Date(b.date):null;
+  return(t&&!isNaN(t))?dayKeyOfInstant(t):'';
+}
+function bMonthKey(b){return bDayKey(b).slice(0,7);}
+function monthKeyOfParts(y,m0){return new Date(Date.UTC(y,m0,1)).toISOString().slice(0,7);}
+function keyToNoonUTCIso(k){const a=k.split('-').map(Number);return new Date(Date.UTC(a[0],a[1]-1,a[2],12)).toISOString();}
+function fmtKey(k,opts){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(k||''))return '—';
+  return new Date(keyToNoonUTCIso(k)).toLocaleDateString('ro-RO',{...(opts||{}),timeZone:'UTC'});
+}
+function todayKeyRO(){return dayKeyOfInstant(new Date());}
+/* Stare de încărcare a programărilor + conexiune (protecție împotriva datelor lipsă/vechi) */
+let bookingsReady=false,bookingsLoadError=null,volApproved=false,dbConnected=false;
+db.ref('.info/connected').on('value',s=>{dbConnected=s.val()===true;});
+function notifyBookingsError(){
+  lk(true);
+  const m=document.getElementById('authMsg');
+  if(m)m.innerHTML=`<span style="color:var(--danger);font-weight:600;">⚠️ Nu s-au putut încărca programările. Reîncarcă pagina; dacă problema persistă, contactează administratorul.</span>`;
+  showToast('Nu s-au putut încărca programările. Programarea este blocată până la reîncărcare.','error',8000);
+}
+/* ============================================================
    ADMIN STAT CARDS
 ============================================================ */
 function updateAdminStats(){
-  const today=new Date();
-  const cM=today.getMonth(),cY=today.getFullYear();
-  const tureAzi=bks.filter(b=>{const d=new Date(b.date);return d.getMonth()===cM&&d.getFullYear()===cY;}).length;
+  const curMk=todayKeyRO().slice(0,7);
+  const tureAzi=bks.filter(b=>bMonthKey(b)===curMk).length;
   const absente=bks.filter(b=>b.noShow).length;
   const sc=document.getElementById('statVolCount');
   const st=document.getElementById('statTureCount');
@@ -1086,13 +1119,24 @@ auth.onAuthStateChanged(u=>{
     document.getElementById("landingView").style.display="none";
     document.getElementById("appView").style.display="block";
     setupInactivityListeners();
+    volApproved=false;bookingsReady=false;bookingsLoadError=null;
+    db.ref('bookings').off('value');
     db.ref('bookings').on('value',s=>{
+      bookingsReady=true;bookingsLoadError=null;
       bks=s.val()?Object.keys(s.val()).map(k=>({id:k,...s.val()[k]})):[];
       populateMonthFilter();rCal();rBTab();
       if(selD)rSlt();
       if(selD&&isA)showDayBks();
       if(!isA)db.ref('volunteers/'+u.uid).once('value',vs=>{if(vs.exists())searchMyStats(vs.val().phone);});
       if(isA)updateAdminStats();
+    },err=>{
+      // Citirea programărilor a fost refuzată/întreruptă. NU lăsăm calendarul să arate totul "liber".
+      bookingsReady=false;bookingsLoadError=err||true;bks=[];
+      populateMonthFilter();rCal();rBTab();
+      if(selD)rSlt();
+      if(isA)showToast('Nu s-au putut încărca programările: '+((err&&err.message)||'eroare necunoscută'),'error',8000);
+      else if(volApproved)notifyBookingsError();
+      console.warn('Eroare citire programări:',err&&err.code,err&&err.message);
     });
     u.getIdTokenResult().then(r=>{
       isA=!!r.claims.admin;
@@ -1114,7 +1158,7 @@ auth.onAuthStateChanged(u=>{
   } else {
     document.getElementById("landingView").style.display="flex";
     document.getElementById("appView").style.display="none";
-    removeInactivityListeners();isA=false;
+    removeInactivityListeners();isA=false;volApproved=false;bookingsReady=false;bookingsLoadError=null;
     document.getElementById("admStatus").innerHTML=`<button class="btn btn-success" onclick="openSignUpModal()">📝 Înregistrare</button><button class="btn btn-primary" onclick="openLogin()">🔓 Autentificare</button>`;
     document.getElementById("admP").style.display="none";
     document.getElementById("admSel").style.display="none";
@@ -1131,7 +1175,8 @@ function checkVolunteerStatus(u){
       const v=s.val();
       if(v.status==="approved"||!v.status){
         document.getElementById("authMsg").innerHTML=`<span style="color:var(--success);font-weight:700;">✅ Bun venit, ${escapeHtml(v.name)}!</span>`;
-        lk(false);searchMyStats(v.phone);
+        volApproved=true;searchMyStats(v.phone);
+        if(bookingsLoadError)notifyBookingsError();else lk(false);
         document.getElementById('uiName').innerText=v.name||'N/A';
         document.getElementById('uiPhone').innerText=v.phone||'N/A';
         document.getElementById('uiEmail').innerText=v.email||u.email||'N/A';
@@ -1261,11 +1306,13 @@ function rCal(){
   const y=curD.getFullYear(),m=curD.getMonth(),last=new Date(y,m+1,0).getDate();
   const firstDow=new Date(y,m,1).getDay(),offset=firstDow===0?6:firstDow-1;
   for(let i=0;i<offset;i++){const e=document.createElement('div');e.className='cal-day';e.style.cssText='opacity:0;pointer-events:none;';g.appendChild(e);}
+  const byDay={};bks.forEach(b=>{const k=bDayKey(b);(byDay[k]=byDay[k]||[]).push(b);});
+  const todayK=todayKeyRO();
   for(let i=1;i<=last;i++){
     const d=new Date(y,m,i),btn=document.createElement("button");
     btn.className="cal-day";btn.innerText=i;
-    const dBs=bks.filter(b=>new Date(b.date).toDateString()===d.toDateString());
-    if(d<new Date().setHours(0,0,0,0)&&!isA){
+    const dBs=byDay[selKey(d)]||[];
+    if(selKey(d)<todayK&&!isA){
       btn.classList.add("day-past");
     } else {
       const nrP=dBs.length;
@@ -1289,7 +1336,7 @@ function closeUserInfoModal(){document.getElementById('userInfoModal').style.dis
 ============================================================ */
 function rSlt(){
   const g=document.getElementById("tGrid");g.innerHTML="";if(!selD)return;
-  const dBs=bks.filter(b=>new Date(b.date).toDateString()===selD.toDateString());
+  const selK=selKey(selD),dBs=bks.filter(b=>bDayKey(b)===selK);
   hrs.slice(0,-1).forEach((h,i)=>{
     const nextH=hrs[i+1],s=document.createElement("div");
     s.className="time-slot";s.innerText=`${h} – ${nextH}`;
@@ -1320,7 +1367,7 @@ function rSlt(){
 function showDayBks(){
   const c=document.getElementById("dayBksList");
   if(!selD){c.innerHTML='<li style="color:var(--gray-500);font-size:.84rem;">Selectează o zi din calendar...</li>';return;}
-  const dBs=bks.filter(b=>new Date(b.date).toDateString()===selD.toDateString()).sort((a,b)=>a.start.localeCompare(b.start));
+  const selK=selKey(selD),dBs=bks.filter(b=>bDayKey(b)===selK).sort((a,b)=>a.start.localeCompare(b.start));
   if(dBs.length===0){c.innerHTML='<li style="color:var(--gray-500);font-size:.84rem;">Nicio programare pentru această zi.</li>';return;}
   c.innerHTML=dBs.map(b=>{
     const nameHtml=b.noShow?`<del style="color:var(--gray-400);font-weight:700;">${escapeHtml(b.name)}</del>`:`<span style="font-weight:700;">${escapeHtml(b.name)}</span>`;
@@ -1340,10 +1387,12 @@ function saveB(){
     execSave(s.options[s.selectedIndex].text,s.options[s.selectedIndex].getAttribute('data-phone'),s.value);
   }
   else{
-    const capturedSelD=new Date(selD);
+    if(!dbConnected){showToast('Conexiunea la server s-a întrerupt. Reîncearcă după ce revine conexiunea.','error',6000);return;}
+    if(!bookingsReady){showToast('Programările nu au fost încărcate. Reîncarcă pagina înainte de a te programa.','error',6000);return;}
+    const capturedSelD=new Date(selD),capMk=selKey(capturedSelD).slice(0,7);
     db.ref('bookings').orderByChild('uid').equalTo(user.uid).once('value',snap=>{
       let count=0;
-      snap.forEach(child=>{const b=child.val();if(!b||!b.date)return;const d=new Date(b.date);if(d.getMonth()===capturedSelD.getMonth()&&d.getFullYear()===capturedSelD.getFullYear())count++;});
+      snap.forEach(child=>{const b=child.val();if(!b)return;if(bMonthKey(b)===capMk)count++;});
       if(count>=2){showToast('Ai atins limita de 2 programări pe lună!','error');return;}
       db.ref('volunteers/'+user.uid).once('value',s=>{const v=s.val();execSave(v.name,v.phone,user.uid);});
     }).catch(err=>showToast('Eroare verificare limită: '+err.message,'error'));
@@ -1352,29 +1401,30 @@ function saveB(){
 function execSave(n,p,targetUid){
   const effectiveE=selE!==null?selE:selS;
   const min=Math.min(selS,effectiveE),max=Math.max(selS,effectiveE);
-  const shiftDate=new Date(selD),requestedDateStr=shiftDate.toDateString();
+  const dayKey=selKey(selD),shiftIso=keyToNoonUTCIso(dayKey);
   const currentUserInfo=(isA&&auth.currentUser)?`Admin (${auth.currentUser.email})`:"Voluntar";
   let instantOverlap=false;
-  if(!isA){bks.forEach(b=>{if(new Date(b.date).toDateString()===requestedDateStr){const bS=hrs.indexOf(b.start);let bE=hrs.indexOf(b.end);if(bE===-1)bE=14;if(min<bE&&(max+1)>bS)instantOverlap=true;}});}
+  if(!isA){bks.forEach(b=>{if(bDayKey(b)===dayKey){const bS=hrs.indexOf(b.start);let bE=hrs.indexOf(b.end);if(bE===-1)bE=14;if(min<bE&&(max+1)>bS)instantOverlap=true;}});}
   if(instantOverlap){showToast('Intervalul a fost ocupat! Alege altul.','error');selS=null;selE=null;rSlt();document.getElementById("cBtn").disabled=true;document.getElementById("cBtn").innerText="Confirmă Programarea";return;}
   const cBtn=document.getElementById("cBtn");cBtn.classList.add('loading');cBtn.innerText="Se confirmă...";cBtn.disabled=true;
   const newKey=db.ref('bookings').push().key;
-  const monthKey=`${shiftDate.getFullYear()}_${String(shiftDate.getMonth()+1).padStart(2,'0')}`;
+  const monthKey=dayKey.slice(0,4)+'_'+dayKey.slice(5,7);
   const updates={};
-  updates['/bookings/'+newKey]={name:n,phone:p,uid:targetUid,date:shiftDate.toISOString(),start:hrs[min],end:hrs[max+1]||"22:00",auditUser:currentUserInfo,auditTime:new Date(Date.now()+serverTimeOffset).toLocaleString('ro-RO',{timeZone:'Europe/Bucharest'}),serverTime:firebase.database.ServerValue.TIMESTAMP};
+  updates['/bookings/'+newKey]={name:n,phone:p,uid:targetUid,date:shiftIso,dateKey:dayKey,start:hrs[min],end:hrs[max+1]||"22:00",auditUser:currentUserInfo,auditTime:new Date(Date.now()+serverTimeOffset).toLocaleString('ro-RO',{timeZone:'Europe/Bucharest'}),serverTime:firebase.database.ServerValue.TIMESTAMP};
   updates[`/shift_counts/${targetUid}/${monthKey}`]=firebase.database.ServerValue.increment(1);
   db.ref().update(updates).then(()=>{
     setTimeout(()=>{
       db.ref('bookings').get().then(snap=>{
         let lost=false;
-        const myData=snap.child(newKey).val();if(!myData)return;
+        const myData=snap.child(newKey).val();
+        if(!myData){cBtn.classList.remove('loading');showToast('Programarea nu a putut fi confirmată pe server. Verifică lista „Programările tale”.','warning',7000);selD=null;selS=null;selE=null;rCal();rSlt();cBtn.innerText="Confirmă Programarea";cBtn.disabled=true;return;}
         const myT=myData.serverTime||0;
         snap.forEach(child=>{
           if(child.key===newKey)return;
           const b=child.val();if(!b||!b.date)return;
-          if(new Date(b.date).toDateString()===requestedDateStr){
+          if(bDayKey(b)===dayKey){
             const bS=hrs.indexOf(b.start);let bE=hrs.indexOf(b.end);if(bE===-1)bE=14;
-            if(min<bE&&(max+1)>bS){const oT=b.serverTime||0;if(oT>0&&oT<myT)lost=true;else if(oT===myT&&child.key<newKey)lost=true;}
+            if(min<bE&&(max+1)>bS){const oT=b.serverTime||0;if(oT<myT)lost=true;else if(oT===myT&&child.key<newKey)lost=true;}
           }
         });
         cBtn.classList.remove('loading');
@@ -1385,7 +1435,7 @@ function execSave(n,p,targetUid){
           showToast(isA?'Programare adăugată de Admin!':'Programare realizată cu succes!','success');
           selD=null;selS=null;selE=null;rCal();rSlt();cBtn.innerText="Confirmă Programarea";cBtn.disabled=true;
         }
-      }).catch(()=>{cBtn.classList.remove('loading');selD=null;selS=null;selE=null;rCal();rSlt();cBtn.innerText="Confirmă Programarea";cBtn.disabled=true;});
+      }).catch(()=>{showToast('Programarea a fost salvată, dar nu s-a putut verifica suprapunerea. Verifică calendarul și anunță administratorul dacă vezi o suprapunere.','warning',9000);cBtn.classList.remove('loading');selD=null;selS=null;selE=null;rCal();rSlt();cBtn.innerText="Confirmă Programarea";cBtn.disabled=true;});
     },3000);
   }).catch(err=>{cBtn.classList.remove('loading');showToast('Eroare server: '+err.message,'error');selD=null;selS=null;selE=null;rCal();rSlt();cBtn.innerText="Confirmă Programarea";cBtn.disabled=true;});
 }
@@ -1477,24 +1527,17 @@ function submitManualReset(){
   }).catch(err=>{msg.style.color='red';msg.innerText='Eroare: '+(err.message||'Funcția server nu este disponibilă.');});
 }
 function searchMyStats(p){
-  const now=new Date();
-  const today=new Date().setHours(0,0,0,0);
-  const rangeStart=new Date(now.getFullYear(), now.getMonth(), 1);
-  const rangeEnd=new Date(now.getFullYear(), now.getMonth()+2, 1);
-  const my=bks.filter(b=>b.phone===p && new Date(b.date)>=rangeStart && new Date(b.date)<rangeEnd)
-    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const todayK=todayKeyRO();
+  const ty=parseInt(todayK.slice(0,4)),tm0=parseInt(todayK.slice(5,7))-1;
+  const startMk=todayK.slice(0,7),endMk=monthKeyOfParts(ty,tm0+1); // luna curentă + luna următoare
+  const my=bks.filter(b=>{const mk=bMonthKey(b);return b.phone===p&&mk>=startMk&&mk<=endMk;})
+    .sort((a,b)=>bDayKey(a).localeCompare(bDayKey(b))||(a.start||'').localeCompare(b.start||''));
   let html="";
   if(my.length>0){
     html=`<p style="font-size:.78rem;font-weight:700;color:var(--primary);margin:10px 0 6px 0;">📅 Programările tale:</p><ul style="list-style:none;padding:0;margin:0;">`;
     my.forEach(b=>{
-      const bDate=new Date(b.date);
-      const isPast=bDate<today;
-      const d=bDate.toLocaleDateString('ro-RO', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        timeZone: 'Europe/Bucharest'
-      });
+      const isPast=bDayKey(b)<todayK;
+      const d=fmtKey(bDayKey(b),{weekday:'short',day:'numeric',month:'short'});
       let statusTag='';
       if(b.noShow) statusTag=`<span style="font-size:.7rem;color:var(--danger);font-weight:bold;">(Absent)</span>`;
       else if(isPast) statusTag=`<span style="font-size:.7rem;color:var(--gray-500);font-weight:bold;">(Efectuat)</span>`;
@@ -1569,7 +1612,7 @@ function bulkDel(path,cls){
   const upds={},dMap={};
   ids.forEach(id=>{
     upds[`/${path}/${id}`]=null;
-    const b=bks.find(b=>b.id===id);if(b&&b.uid){const d=new Date(b.date),mk=`${d.getFullYear()}_${String(d.getMonth()+1).padStart(2,'0')}`,ck=`/shift_counts/${b.uid}/${mk}`;if(!dMap[ck])dMap[ck]=0;dMap[ck]++;}
+    const b=bks.find(b=>b.id===id);if(b&&b.uid){const k=bDayKey(b),mk=k.slice(0,4)+'_'+k.slice(5,7),ck=`/shift_counts/${b.uid}/${mk}`;if(!dMap[ck])dMap[ck]=0;dMap[ck]++;}
   });
   for(const ck in dMap)upds[ck]=firebase.database.ServerValue.increment(-dMap[ck]);
   db.ref().update(upds).then(()=>{
@@ -1588,9 +1631,9 @@ function computeAndRenderAudit(){
   const st=(document.getElementById("bSearch")?.value||"").toLowerCase();
   const fm=document.getElementById("bMonthFilter")?.value||"";
   auditFiltered=[...bks];
-  if(fm){const[fM,fY]=fm.split("-");auditFiltered=auditFiltered.filter(b=>{const d=new Date(b.date);return d.getFullYear()==fY&&(d.getMonth()+1)==parseInt(fM);});}
-  if(st)auditFiltered=auditFiltered.filter(b=>(b.name||"").toLowerCase().includes(st)||(b.auditUser||"").toLowerCase().includes(st)||new Date(b.date).toLocaleDateString('ro-RO', { timeZone: 'Europe/Bucharest' }).includes(st));
-  auditFiltered.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(fm){const[fM,fY]=fm.split("-");const mk=`${fY}-${String(fM).padStart(2,'0')}`;auditFiltered=auditFiltered.filter(b=>bMonthKey(b)===mk);}
+  if(st)auditFiltered=auditFiltered.filter(b=>(b.name||"").toLowerCase().includes(st)||(b.auditUser||"").toLowerCase().includes(st)||fmtKey(bDayKey(b)).includes(st));
+  auditFiltered.sort((a,b)=>bDayKey(a).localeCompare(bDayKey(b))||(a.start||'').localeCompare(b.start||''));
   renderAuditPage();
 }
 function renderAuditPage(auditBody){
@@ -1600,7 +1643,7 @@ function renderAuditPage(auditBody){
     const aU=b.auditUser||"Admin (Vechi)";
     const bc=aU.includes('Admin')?'badge badge-admin':'badge badge-vol';
     const aT=b.auditTime||"—";
-    auditBody.innerHTML+=`<tr style="opacity:${b.noShow?.5:1};"><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck','bMultiBar','bSelCount')"></td><td style="text-decoration:${b.noShow?'line-through':'none'};font-weight:600;">${escapeHtml(b.name)}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${new Date(b.date).toLocaleDateString('ro-RO', { timeZone: 'Europe/Bucharest' })}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${b.start} – ${b.end}</td><td><span class="${bc}">${escapeHtml(aU)}</span></td><td style="font-size:.72rem;color:var(--gray-400);">${aT}</td></tr>`;
+    auditBody.innerHTML+=`<tr style="opacity:${b.noShow?.5:1};"><td><input type="checkbox" class="bCheck" value="${b.id}" onchange="updSelCount('bCheck','bMultiBar','bSelCount')"></td><td style="text-decoration:${b.noShow?'line-through':'none'};font-weight:600;">${escapeHtml(b.name)}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${fmtKey(bDayKey(b))}</td><td style="font-family:'JetBrains Mono',monospace;font-size:.76rem;">${b.start} – ${b.end}</td><td><span class="${bc}">${escapeHtml(aU)}</span></td><td style="font-size:.72rem;color:var(--gray-400);">${aT}</td></tr>`;
   });
   // Dupa re-render, checkboxurile sunt recreate nebifate — resetam bara si master checkbox
   const bMultiBar=document.getElementById('bMultiBar');
@@ -1624,7 +1667,7 @@ function populateMonthFilter(){
   const selAbs=document.getElementById("absMonthFilter");
   let html='<option value="">Toate lunile</option>';
   const um=new Set();
-  bks.forEach(b=>{const d=new Date(b.date);um.add(`${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`);});
+  bks.forEach(b=>{const k=bDayKey(b);if(k)um.add(`${k.slice(5,7)}-${k.slice(0,4)}`);});
   Array.from(um).sort((a,b)=>{const[m1,y1]=a.split('-'),[m2,y2]=b.split('-');if(y1!==y2)return y2-y1;return m2-m1;}).forEach(my=>{const[m,y]=my.split('-');html+=`<option value="${my}">${mN[parseInt(m)-1]} ${y}</option>`;});
   if(selAudit){const cv1=selAudit.value;selAudit.innerHTML=html;if(cv1)selAudit.value=cv1;}
   if(selAbs){const cv2=selAbs.value;selAbs.innerHTML=html;if(cv2)selAbs.value=cv2;}
@@ -1640,7 +1683,7 @@ function prepPrint(){
   for(let i=0;i<offset;i++){html+=`<td class="empty-cell"></td>`;cc++;}
   for(let d=1;d<=last;d++){
     if(cc>0&&cc%7===0)html+=`</tr><tr>`;
-    const dS=new Date(y,m,d).toDateString(),dB=bks.filter(b=>new Date(b.date).toDateString()===dS).sort((a,b)=>a.start.localeCompare(b.start));
+    const dS=dayKeyFromParts(y,m,d),dB=bks.filter(b=>bDayKey(b)===dS).sort((a,b)=>a.start.localeCompare(b.start));
     const dow=new Date(y,m,d).getDay(),isW=dow===0||dow===6;
     html+=`<td><span class="${isW?'ziua weekend-day':'ziua'}">${d}</span>`;
     dB.forEach(b=>{if(b.noShow)html+=`<div class="tura absent"><del><b>${b.start}-${b.end}</b>: ${escapeHtml(b.name)}</del></div>`;else html+=`<div class="tura"><b>${b.start}-${b.end}</b>: ${escapeHtml(b.name)}</div>`;});
@@ -1674,8 +1717,8 @@ function exportPublicCalendarLocalFallback(){
   for(let i=0;i<offset;i++){tableHtml+=`<td class="empty-cell"></td>`;cc++;}
   for(let d=1;d<=last;d++){
     if(cc>0&&cc%7===0)tableHtml+=`</tr><tr>`;
-    const dS=new Date(y,m,d).toDateString();
-    const dB=bks.filter(b=>new Date(b.date).toDateString()===dS).sort((a,b)=>a.start.localeCompare(b.start));
+    const dS=dayKeyFromParts(y,m,d);
+    const dB=bks.filter(b=>bDayKey(b)===dS).sort((a,b)=>a.start.localeCompare(b.start));
     const dow=new Date(y,m,d).getDay(),isW=dow===0||dow===6;
     tableHtml+=`<td><span class="${isW?'ziua weekend-day':'ziua'}">${d}</span>`;
     dB.forEach(b=>{if(b.noShow)tableHtml+=`<div class="tura absent"><del><b>${b.start}-${b.end}</b>: ${escapeHtml(b.name)}</del></div>`;else tableHtml+=`<div class="tura"><b>${b.start}-${b.end}</b>: ${escapeHtml(b.name)}</div>`;});
@@ -1749,8 +1792,8 @@ function csvSafe(s){
 function exportCSV(){
   if(bks.length===0){showToast('Nu există programări de exportat.','warning');return;}
   let csv="Nume Voluntar,Data Turei,Interval,Adaugat de,Prezenta,Data Adaugarii\n";
-  [...bks].sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(b=>{
-    const d=new Date(b.date),ds=`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  [...bks].sort((a,b)=>bDayKey(b).localeCompare(bDayKey(a))).forEach(b=>{
+    const k=bDayKey(b),ds=`${k.slice(8,10)}/${k.slice(5,7)}/${k.slice(0,4)}`;
     csv+=`${csvSafe(b.name||"Necunoscut")},${ds},${b.start}-${b.end},${csvSafe(b.auditUser||"N/A")},${b.noShow?"Absent":"Prezent"},${b.auditTime||'N/A'}\n`;
   });
   const blob=new Blob([new Uint8Array([0xEF,0xBB,0xBF]),csv],{type:'text/csv;charset=utf-8;'});
@@ -1769,11 +1812,10 @@ function cleanOldData(){
    CHARTS
 ============================================================ */
 function generateChart(){
-  const cM=curD.getMonth(),cY=curD.getFullYear();
+  const curMk=monthKeyOfParts(curD.getFullYear(),curD.getMonth());
   const map={};
   bks.forEach(b=>{
-    const bd=new Date(b.date);
-    if(bd.getMonth()===cM&&bd.getFullYear()===cY&&!b.noShow){
+    if(bMonthKey(b)===curMk&&!b.noShow){
       const uid=b.uid||b.phone;
       const h=parseInt(b.end.split(':')[0])-parseInt(b.start.split(':')[0]);
       if(!map[uid])map[uid]={name:b.name||'N/A',hours:0};
@@ -1791,7 +1833,7 @@ function generateMonthlyChart(){
   const mN=["Ian","Feb","Mar","Apr","Mai","Iun","Iul","Aug","Sep","Oct","Nov","Dec"];
   const now=new Date();
   const months=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({label:`${mN[d.getMonth()]} ${d.getFullYear()}`,m:d.getMonth(),y:d.getFullYear()});}
-  const counts=months.map(m=>bks.filter(b=>{const bd=new Date(b.date);return bd.getMonth()===m.m&&bd.getFullYear()===m.y;}).length);
+  const counts=months.map(m=>{const mk=monthKeyOfParts(m.y,m.m);return bks.filter(b=>bMonthKey(b)===mk).length;});
   const ctx=document.getElementById('monthlyChart').getContext('2d');
   if(monthlyChartInst)monthlyChartInst.destroy();
   monthlyChartInst=new Chart(ctx,{type:'line',data:{labels:months.map(m=>m.label),datasets:[{data:counts,borderColor:'#1d4ed8',backgroundColor:'rgba(29,78,216,.1)',tension:.4,fill:true,pointBackgroundColor:'#1d4ed8',pointRadius:5,pointHoverRadius:7}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0,font:{family:'JetBrains Mono',size:11}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{family:'DM Sans',size:11,weight:'600'}},grid:{display:false}}}}});
@@ -1801,7 +1843,7 @@ function generateAbsenceChart(){
   const map={};
   const fm=document.getElementById("absMonthFilter")?.value||"";
   let filteredBks=bks;
-  if(fm){const[fM,fY]=fm.split("-");filteredBks=bks.filter(b=>{const d=new Date(b.date);return d.getFullYear()==fY&&(d.getMonth()+1)==parseInt(fM);});}
+  if(fm){const[fM,fY]=fm.split("-");const mk=`${fY}-${String(fM).padStart(2,'0')}`;filteredBks=bks.filter(b=>bMonthKey(b)===mk);}
   filteredBks.forEach(b=>{if(b.noShow===true){const uid=b.uid||b.phone;if(!map[uid])map[uid]={name:b.name||'N/A',absences:0};map[uid].absences+=1;}});
   const entries=Object.values(map).sort((a,b)=>b.absences-a.absences);
   const ctx=document.getElementById('absenceChart').getContext('2d');
@@ -2060,7 +2102,7 @@ function editSelectedBooking(){
   const id=selected[0].value;
   const b=bks.find(bk=>bk.id===id);if(!b)return;
   document.getElementById('editBId').value=id;
-  const d=new Date(b.date);
+  const d=bDayKey(b);
   const dateInput=document.getElementById('editBDate');
   if(dateInput._flatpickr){dateInput._flatpickr.setDate(d);}
   else{flatpickr(dateInput,{locale:"ro",dateFormat:"Y-m-d",altInput:true,altFormat:"d.m.Y",defaultDate:d,disableMobile:true});}
@@ -2076,15 +2118,15 @@ function saveEditedBooking(){
   const newDateStr=document.getElementById('editBDate').value;
   const newStart=document.getElementById('editBStart').value;
   const newEnd=document.getElementById('editBEnd').value;
-  if(!newDateStr){showToast('Alege o dată validă!','warning');return;}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(newDateStr||'')){showToast('Alege o dată validă!','warning');return;}
   if(hrs.indexOf(newStart)>=hrs.indexOf(newEnd)){showToast('Ora de sfârșit trebuie să fie obligatoriu după ora de început!','error');return;}
-  const newDate=new Date(newDateStr);
   const b=bks.find(bk=>bk.id===id);if(!b)return;
-  const oldD=new Date(b.date);
-  const oldKey=`${oldD.getFullYear()}_${String(oldD.getMonth()+1).padStart(2,'0')}`;
-  const newKey=`${newDate.getFullYear()}_${String(newDate.getMonth()+1).padStart(2,'0')}`;
+  const oldK=bDayKey(b);
+  const oldKey=oldK.slice(0,4)+'_'+oldK.slice(5,7);
+  const newKey=newDateStr.slice(0,4)+'_'+newDateStr.slice(5,7);
   const updates={};
-  updates['/bookings/'+id+'/date']=newDate.toISOString();
+  updates['/bookings/'+id+'/date']=keyToNoonUTCIso(newDateStr);
+  updates['/bookings/'+id+'/dateKey']=newDateStr;
   updates['/bookings/'+id+'/start']=newStart;
   updates['/bookings/'+id+'/end']=newEnd;
   updates['/bookings/'+id+'/auditUser']="Admin ("+auth.currentUser.email+") [Modificat]";
